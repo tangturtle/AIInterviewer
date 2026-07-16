@@ -20,14 +20,14 @@
 
 ## 技术栈
 
-| 层         | 技术                                                 |
-| ---------- | ---------------------------------------------------- |
-| 开发框架   | ArkUI + ArkTS                                        |
-| AI 能力    | LLM API（DeepSeek / 通义千问），流式输出             |
-| 鸿蒙能力   | 分布式数据对象（`@ohos.data.distributedDataObject`） |
-| 网络请求   | `@ohos.net.http`                                     |
-| 数据持久化 | Preferences                                          |
-| 构建工具   | DevEco Studio，SDK 6.1.1                             |
+| 层     | 技术                                          |
+|-------|---------------------------------------------|
+| 开发框架  | ArkUI + ArkTS                               |
+| AI 能力 | LLM API（DeepSeek / 通义千问），流式输出               |
+| 鸿蒙能力  | 分布式数据对象（`@ohos.data.distributedDataObject`） |
+| 网络请求  | `@ohos.net.http`                            |
+| 数据持久化 | Preferences                                 |
+| 构建工具  | DevEco Studio，SDK 6.1.1                     |
 
 ---
 
@@ -68,8 +68,8 @@ AIInterviewer/
 │       │   ├── Interview.ets      # 面试中：答题页
 │       │   └── Report.ets         # 面试后：反馈报告页
 │       └── utils/                 # 工具类
-│           ├── http.ts            # HTTP 请求封装
-│           └── prompt.ts          # LLM 提示词模板
+│           ├── PreferencesManager.ets  # API Key 持久化存储
+│           └── http.ts            # HTTP 请求封装
 ├── AppScope/                      # 应用级配置
 └── build-profile.json5            # 构建配置
 ```
