@@ -193,7 +193,7 @@ hilog.debug(DOMAIN, TAG, 'API response: %{private}s', responseText);
 - ✅ **推荐**：导出函数添加 JSDoc 风格注释
 - ✅ **必须**：复杂业务逻辑的关键步骤加注释说明意图
 - ❌ **禁止**：保留无意义的注释（如 `// 设置值`）
-- ❌ **禁止**：提交含有 `TODO`、`FIXME`、`[redacted]` 等占位符的代码
+- ❌ **禁止**：提交含有 `TODO`、`FIXME` 等占位符的代码
 
 ```typescript
 /**
@@ -250,7 +250,7 @@ insert_final_newline = true
 每次 PR 或 commit 前，逐条检查：
 
 - [ ] 无 `any` 类型
-- [ ] 无 `[redacted]`、`TODO`、`FIXME` 等占位符
+- [ ] 无 `TODO`、`FIXME` 等占位符
 - [ ] API Key 没有硬编码在代码中
 - [ ] hilog 的 DOMAIN 为 `0x0000`，tag 为 `'AIInterviewer'`
 - [ ] 字符串使用 `$r('app.string.xxx')`，中文不在 `.ets` 中硬编码

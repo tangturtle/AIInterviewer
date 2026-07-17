@@ -16,29 +16,30 @@
 | 持久化 | `@ohos.data.preferences`（ArkData） |
 | 日志 | `@kit.PerformanceAnalysisKit` / `hilog`，DOMAIN = `0x0000` |
 
-## 模块分层（规划）
+## 模块分层
 
 项目采用经典三层架构，各层职责明确、单向依赖：
 
 ```
-┌─────────────────────────────────────────────────┐
-│                    UI 层 (pages)                  │
-│  Index.ets  ──  Interview.ets  ──  Report.ets   │
-│  首页/JD输入      面试答题页       反馈报告页     │
-├─────────────────────────────────────────────────┤
-│                  工具层 (utils)                   │
-│  PreferencesManager.ets  │  http.ts  │  prompt.ts│
-│  API Key 持久化          │  网络请求  │ 提示词工程 │
-├─────────────────────────────────────────────────┤
-│                LLM API 服务层（外部）              │
-│              LLM 大语言模型推理接口                │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    UI 层 (pages)                         │
+│  Index.ets → Interview.ets → Report.ets                 │
+│  首页/JD输入   面试答题+追问   三维度评分报告              │
+│  + Setting.ets（API供应商/模型/Key配置+连通测试）         │
+├─────────────────────────────────────────────────────────┤
+│                  工具层 (utils)                          │
+│  PreferencesManager.ets │ http.ts │ prompt.ts │ types.ts│
+│  Key/供应商/模型持久化    │ 网络+连通│ 提示词工程 │ 类型定义 │
+├─────────────────────────────────────────────────────────┤
+│                LLM API 服务层（外部）                      │
+│              LLM 大语言模型推理接口                        │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### 层间通信规则
 
 - **UI 层 → 工具层**：页面通过 `import` 调用 utils 导出函数，传递 `Context` 和业务参数
-- **工具层 → LLM API**：`http.ts` 封装 POST 请求，携带 API Key 和 prompt 负载
+- **工具层 → LLM API**：`http.ts` 封装 POST/GET 请求，携带 API Key 和 prompt 负载
 - **UI 层禁止直接调用网络 API**：所有网络请求经过 `utils/http.ts`
 - **UI 层禁止直接读写 Preferences**：通过 `utils/PreferencesManager.ts` 操作
 
@@ -46,28 +47,32 @@
 
 ```
 entry/src/main/ets/
-├── entryability/
-│   └── EntryAbility.ets          # UIAbility 生命周期，加载 pages/Index
-├── entrybackupability/
-│   └── EntryBackupAbility.ets    # 备份扩展（BackupExtensionAbility）
+├── entryability/EntryAbility.ets
 ├── pages/
-│   ├── Index.ets                 # 首页 JD 输入（占位 → 待实现完整 UI）
-│   ├── Interview.ets             # 面试答题页（占位）
-│   └── Report.ets                # 面试报告页（占位）
+│   ├── Index.ets          # 首页：JD输入/粘贴、API Key配置弹窗、路由跳转
+│   ├── Interview.ets      # 面试页：JD解析→3轮出题+追问→LLM评分→跳转Report
+│   ├── Report.ets         # 报告页：总分+三维度（技术/表达/逻辑）评分+建议
+│   └── Setting.ets        # 配置页：供应商选择、API Key输入、连通测试、模型列表、余额查询
 └── utils/
-    ├── PreferencesManager.ets    # API Key 持久化（save/get/has）
-    ├── http.ts                   # HTTP POST 封装（⚠️ 含占位符需修复）
-    └── types.ts                  # 共享类型定义（ParsedJD, QAPair, Report 等）
+    ├── types.ts           # ParsedJD, InterviewQuestion, QAPair, InterviewReport, FollowUpItem
+    ├── PreferencesManager.ets  # saveApiKey/getApiKey/hasApiKey, saveProvider/getProvider/getEndpoint,
+    │                         # saveModel/getModel, BUILTIN_ENDPOINTS/DEFAULT_MODELS/DEFAULT_PROVIDER 常量
+    ├── http.ts            # post, testConnection, fetchModels, fetchBalance
+    └── prompt.ts          # callLLM, buildJDPrompt/parseJDResponse, buildQuestionPrompt/parseQuestionResponse,
+                          # buildFollowUpPrompt, buildReportPrompt/parseReportResponse
 ```
 
-### 尚未实现的规划模块
+### 已实现 vs 规划中
 
-| 模块 | 状态 | 说明 |
-|---|---|---|
-| `utils/prompt.ts` | ❌ 未创建 | LLM 提示词工程 — JD 解析、面试题生成、追问、评分 |
-| `pages/Interview.ets` | ⏳ 占位页 | 面试答题页 — 展示题目、语音/文字输入、计时（路由就绪） |
-| `pages/Report.ets` | ⏳ 占位页 | 反馈报告页 — 三维度评分、改进建议（路由就绪） |
-| 元服务卡片 | ❌ 未实现 | 规划中的鸿蒙特色功能 |
+| 模块 | 状态 |
+|---|---|
+| 4 个页面 (Index/Interview/Report/Setting) | ✅ 已实现 |
+| utils 层全部 4 个模块 | ✅ 已实现 |
+| DeepSeek/OpenAI 双供应商 | ✅ 已实现 |
+| 连通性测试 + 模型列表拉取 + 余额查询 | ✅ 已实现 |
+| 流式输出（LLM 边收边渲染） | 🔄 Phase 3 |
+| 分布式数据对象（手机→平板同步） | 🔄 Phase 3 |
+| 元服务卡片 | 🔄 Phase 4 |
 
 ## 路由设计
 
@@ -78,38 +83,37 @@ entry/src/main/ets/
   "src": [
     "pages/Index",
     "pages/Interview",
-    "pages/Report"
+    "pages/Report",
+    "pages/Setting"
   ]
 }
 ```
 
-页面导航使用 `@ohos.router`（`router.pushUrl` / `router.back`），传参通过 `router.RouterOptions.params`。
+页面导航使用 `@ohos.router`（`router.pushUrl` / `router.replaceUrl` / `router.back`），传参通过 `router.RouterOptions.params`。
+
+> **注意**：`@ohos.router` 在 API 24 已标记为 deprecated，后续应迁移到 `@ohos.arkui.advanced.Navigation`。
 
 ## 页面状态机
 
 ```
-┌──────────┐   输入/粘贴 JD    ┌────────────┐
-│  Index   │ ──────────────→   │ Interview  │
-│ (首页)   │                   │ (面试答题)  │
-└──────────┘                   └─────┬──────┘
-      ↑                              │ 三轮完成
-      │                              ↓
-      │                       ┌────────────┐
-      │                       │  Report    │
-      └───────────────────────│ (反馈报告)  │
-        再来一次               └────────────┘
+Index → Interview → Report
+  ↑                    │
+  └────────────────────┘
+
+Index ← Setting（配置完成后 replaceUrl 回 Index）
 ```
 
 - **Index**：JD 输入/粘贴 → 点击开始面试 → pushUrl 到 Interview
-- **Interview**：展示题目 → 用户回答 → 追问（最多三轮）→ 自动跳转 Report
-- **Report**：展示三维度评分 → "再来一次" → back 到 Index
+- **Interview**：展示题目 → 用户回答 → 追问（最多三轮）→ 自动生成 Report 并 replaceUrl 到 Report
+- **Report**：展示三维度评分 + 改进建议 → "再来一次" → back 到 Index
+- **Setting**：选择供应商、输入 API Key、连通测试、拉取模型列表、选择模型 → replaceUrl 回 Index
 
 ## API 设计原则
 
 1. **无第三方 SDK 依赖** — 所有网络请求使用 `@ohos.net.http` 原生 API
 2. **API Key 运行时配置** — 通过 Preferences 存储，不硬编码
-3. **流式输出规划** — 后续通过 `@ohos.net.http` 的 `onDataReceive` 实现流式响应
-4. **请求封装** — `utils/http.ts` 统一处理 Authorization 头、JSON 序列化、错误处理
+3. **超时配置** — connectTimeout=15s, readTimeout=30s，避免默认 60s 超时导致"卡死"
+4. **请求封装** — `utils/http.ts` 统一处理 Authorization 头、JSON 序列化、错误处理、非 2xx 异常
 
 ## 关键文件路径
 
