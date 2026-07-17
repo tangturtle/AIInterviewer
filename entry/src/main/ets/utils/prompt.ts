@@ -12,10 +12,10 @@ import type {
 // ── 默认 LLM 端点 ──────────────────────────────────────────
 
 /** 默认 LLM API 端点（Provider 配置后通过 Preferences 覆盖） */
-export const DEFAULT_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
+export const DEFAULT_ENDPOINT = 'https://api.deepseek.com/chat/completions';
 
 /** 默认模型名 */
-export const DEFAULT_MODEL = 'deepseek-chat';
+export const DEFAULT_MODEL = 'deepseek-v4-flash';
 
 // ── 内部辅助：LLM 调用封装 ─────────────────────────────────
 

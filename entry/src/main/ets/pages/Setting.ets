@@ -60,7 +60,7 @@ struct Setting {
 
     const provider = this.getProviderName(this.providerIndex);
     const endpoint = BUILTIN_ENDPOINTS[provider];
-    const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-chat';
+    const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
     const apiKey = this.apiKeyInput.trim();
 
     const ok = await testConnection(apiKey, endpoint, defaultModel);
@@ -92,7 +92,7 @@ struct Setting {
         this.selectedModel = models[foundIdx];
       } else {
         // 获取失败，使用默认模型
-        const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-chat';
+        const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
         this.modelOptions = [{ value: defaultModel }];
         this.modelIndex = 0;
         this.selectedModel = defaultModel;

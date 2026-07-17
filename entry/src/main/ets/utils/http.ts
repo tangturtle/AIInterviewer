@@ -29,7 +29,7 @@ export async function post(url: string, body: object, apiKey: string): Promise<s
  * @param endpoint - LLM API 端点
  * @param model - 模型名（可选，默认自动检测）
  */
-export async function testConnection(apiKey: string, endpoint: string, model: string = 'deepseek-chat'): Promise<boolean> {
+export async function testConnection(apiKey: string, endpoint: string, model: string = 'deepseek-v4-flash'): Promise<boolean> {
   const httpRequest = http.createHttp();
   try {
     const body = {

@@ -8,13 +8,13 @@ const KEY_MODEL = 'ai_interviewer_model';
 /** 内置 API 供应商端点 */
 export const BUILTIN_ENDPOINTS: Record<string, string> = {
   'openai': 'https://api.openai.com/v1/chat/completions',
-  'deepseek': 'https://api.deepseek.com/v1/chat/completions'
+  'deepseek': 'https://api.deepseek.com/chat/completions'
 };
 
 /** 各供应商的默认模型 */
 export const DEFAULT_MODELS: Record<string, string> = {
   'openai': 'gpt-4',
-  'deepseek': 'deepseek-chat'
+  'deepseek': 'deepseek-v4-flash'
 };
 export const DEFAULT_PROVIDER = 'deepseek';
 
@@ -79,5 +79,5 @@ export async function getModel(context: Context): Promise<string> {
     return val;
   }
   const provider = await getProvider(context);
-  return DEFAULT_MODELS[provider] || 'deepseek-chat';
+  return DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
 }
