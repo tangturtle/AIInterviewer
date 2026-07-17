@@ -1,6 +1,6 @@
 import router from '@ohos.router';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { getApiKey } from '../utils/PreferencesManager';
+import { getApiKey, getEndpoint } from '../utils/PreferencesManager';
 import {
   buildJDPrompt, parseJDResponse,
   buildQuestionPrompt, parseQuestionResponse,

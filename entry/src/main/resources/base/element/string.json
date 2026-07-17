@@ -131,6 +131,58 @@
     {
       "name": "report_restart_button",
       "value": "再来一次"
+    },
+    {
+      "name": "setting_title",
+      "value": "API 配置"
+    },
+    {
+      "name": "setting_provider_label",
+      "value": "接口供应商"
+    },
+    {
+      "name": "setting_api_key_label",
+      "value": "API Key"
+    },
+    {
+      "name": "setting_api_key_placeholder",
+      "value": "请输入您的 API Key"
+    },
+    {
+      "name": "setting_test_button",
+      "value": "检测连通性"
+    },
+    {
+      "name": "setting_test_success",
+      "value": "连接成功！API Key 有效"
+    },
+    {
+      "name": "setting_test_fail",
+      "value": "连接失败，请检查网络和 API Key"
+    },
+    {
+      "name": "setting_confirm",
+      "value": "确认"
+    },
+    {
+      "name": "setting_cancel",
+      "value": "取消"
+    },
+    {
+      "name": "setting_network_title",
+      "value": "网络不可用"
+    },
+    {
+      "name": "setting_network_message",
+      "value": "检测到网络连接异常，请检查网络设置后重试"
+    },
+    {
+      "name": "setting_first_launch_title",
+      "value": "首次使用"
+    },
+    {
+      "name": "setting_first_launch_message",
+      "value": "请先配置 API 供应商和 Key"
     }
   ]
 }

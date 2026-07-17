@@ -11,8 +11,8 @@ import type {
 
 // ── 默认 LLM 端点 ──────────────────────────────────────────
 
-/** 默认 LLM API 端点（可通过 Preferences 配置覆盖，当前硬编码） */
-const DEFAULT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+/** 默认 LLM API 端点（Provider 配置后通过 Preferences 覆盖） */
+export const DEFAULT_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 
 // ── 内部辅助：LLM 调用封装 ─────────────────────────────────
 

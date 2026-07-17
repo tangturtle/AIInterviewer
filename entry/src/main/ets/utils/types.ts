@@ -54,6 +54,13 @@ export interface DimensionScore {
   suggestions: string[];      // 改进建议列表
 }
 
+/** API 供应商信息 */
+export interface ApiProvider {
+  name: string;        // 唯一标识（如 'openai', 'deepseek'）
+  label: string;       // 显示名称（如 'OpenAI', 'DeepSeek'）
+  endpoint: string;    // API 端点 URL
+}
+
 /** LLM 返回的完整面试报告 */
 export interface InterviewReport {
   overall: number;            // 总分（百分制）

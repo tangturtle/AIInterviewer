@@ -2,6 +2,7 @@
   "src": [
     "pages/Index",
     "pages/Interview",
-    "pages/Report"
+    "pages/Report",
+    "pages/Setting"
   ]
 }

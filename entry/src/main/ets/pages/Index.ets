@@ -1,13 +1,11 @@
 import router from '@ohos.router';
 import { pasteboard } from '@kit.BasicServicesKit';
-import { hasApiKey, saveApiKey } from '../utils/PreferencesManager';
+import { hasApiKey } from '../utils/PreferencesManager';
 
 @Entry
 @Component
 struct Index {
   @State jdText: string = '';
-  @State showApiKeyDialog: boolean = false;
-  @State apiKeyInput: string = '';
   @State hasKey: boolean = false;
 
   aboutToAppear(): void {
@@ -17,7 +15,8 @@ struct Index {
   private async checkApiKey(): Promise<void> {
     this.hasKey = await hasApiKey(getContext(this));
     if (!this.hasKey) {
-      this.showApiKeyDialog = true;
+      // 无 API Key，跳转配置页面
+      router.replaceUrl({ url: 'pages/Setting' });
     }
   }
 
@@ -48,14 +47,8 @@ struct Index {
     });
   }
 
-  private async saveApiKeyFromDialog(): Promise<void> {
-    if (!this.apiKeyInput.trim()) {
-      return;
-    }
-    await saveApiKey(getContext(this), this.apiKeyInput.trim());
-    this.hasKey = true;
-    this.showApiKeyDialog = false;
-    this.apiKeyInput = '';
+  private goToSetting(): void {
+    router.pushUrl({ url: 'pages/Setting' });
   }
 
   build() {
@@ -111,76 +104,22 @@ struct Index {
       .justifyContent(FlexAlign.SpaceBetween)
       .margin({ top: 16 });
 
-      // API Key 状态提示
+      // API Key 状态 + 配置入口
       Row() {
         Text(this.hasKey ? '✓ API Key 已配置' : '✗ 未配置 API Key')
           .fontSize(13)
           .fontColor(this.hasKey ? '#34C759' : '#FF9500');
-        Text('修改')
+        Text('设置')
           .fontSize(13)
           .fontColor('#0A59F7')
           .margin({ left: 8 })
-          .onClick(() => {
-            this.showApiKeyDialog = true;
-          });
+          .onClick(() => this.goToSetting());
       }
       .margin({ top: 24 });
     }
     .padding({ left: 20, right: 20 })
     .height('100%')
     .width('100%')
-    .backgroundColor(Color.White)
-
-    // API Key 配置弹窗
-    .bindContentCover(this.showApiKeyDialog, this.ApiKeyDialogBuilder())
-  }
-
-  @Builder
-  ApiKeyDialogBuilder(): void {
-    Column() {
-      Text($r('app.string.index_api_key_title'))
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .margin({ bottom: 16 });
-
-      TextInput({
-        placeholder: $r('app.string.index_api_key_placeholder'),
-        text: this.apiKeyInput
-      })
-        .type(InputType.Password)
-        .height(44)
-        .borderRadius(8)
-        .borderColor('#E0E0E0')
-        .borderWidth(1)
-        .padding({ left: 12 })
-        .onChange((value: string) => {
-          this.apiKeyInput = value;
-        });
-
-      Row() {
-        Button('取消')
-          .backgroundColor('#F0F0F0')
-          .fontColor('#333333')
-          .borderRadius(8)
-          .height(40)
-          .onClick(() => {
-            this.showApiKeyDialog = false;
-          });
-
-        Button($r('app.string.index_api_key_save'))
-          .backgroundColor('#0A59F7')
-          .fontColor(Color.White)
-          .borderRadius(8)
-          .height(40)
-          .onClick(() => this.saveApiKeyFromDialog());
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.SpaceBetween)
-      .margin({ top: 20 });
-    }
-    .padding(24)
-    .backgroundColor(Color.White)
-    .borderRadius(16)
-    .width('85%')
+    .backgroundColor(Color.White);
   }
 }
