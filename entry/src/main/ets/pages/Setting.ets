@@ -1,6 +1,6 @@
 import router from '@ohos.router';
-import { getApiKey, saveApiKey, saveProvider, getProvider, BUILTIN_ENDPOINTS, DEFAULT_PROVIDER } from '../utils/PreferencesManager';
-import { testConnection } from '../utils/http';
+import { getApiKey, saveApiKey, saveProvider, getProvider, saveModel, getModel, BUILTIN_ENDPOINTS, DEFAULT_PROVIDER, DEFAULT_MODELS } from '../utils/PreferencesManager';
+import { testConnection, fetchModels, fetchBalance } from '../utils/http';
 
 @Entry
 @Component
@@ -10,6 +10,10 @@ struct Setting {
   @State testResult: string = '';
   @State testColor: string = '#999999';
   @State isTesting: boolean = false;
+  @State balanceInfo: string = '';
+  @State modelOptions: SelectOption[] = [];
+  @State modelIndex: number = 0;
+  @State selectedModel: string = '';
 
   private providerOptions: SelectOption[] = [
     { value: 'DeepSeek' },
@@ -21,15 +25,20 @@ struct Setting {
   }
 
   private async loadSettings(): Promise<void> {
-    const key = await getApiKey(getContext(this));
+    const ctx = getContext(this);
+    const key = await getApiKey(ctx);
     if (key) {
       this.apiKeyInput = key;
     }
-    const provider = await getProvider(getContext(this));
+    const provider = await getProvider(ctx);
     if (provider === 'openai') {
       this.providerIndex = 1;
     } else {
       this.providerIndex = 0;
+    }
+    const savedModel = await getModel(ctx);
+    if (savedModel) {
+      this.selectedModel = savedModel;
     }
   }
 
@@ -46,29 +55,73 @@ struct Setting {
     this.isTesting = true;
     this.testResult = '检测中...';
     this.testColor = '#999999';
+    this.balanceInfo = '';
+    this.modelOptions = [];
 
     const provider = this.getProviderName(this.providerIndex);
     const endpoint = BUILTIN_ENDPOINTS[provider];
+    const apiKey = this.apiKeyInput.trim();
 
-    const ok = await testConnection(this.apiKeyInput.trim(), endpoint);
+    const ok = await testConnection(apiKey, endpoint);
     this.isTesting = false;
 
     if (ok) {
-      this.testResult = '连接成功！API Key 有效';
+      this.testResult = '连接成功！正在获取模型列表...';
       this.testColor = '#34C759';
+
+      // 获取可用模型
+      const models = await fetchModels(apiKey, endpoint);
+      if (models.length > 0) {
+        const opts: SelectOption[] = [];
+        for (let i = 0; i < models.length; i++) {
+          opts.push({ value: models[i] });
+        }
+        this.modelOptions = opts;
+        this.testResult = '连接成功，已获取 ' + models.length + ' 个模型';
+
+        // 尝试匹配已保存的模型
+        let foundIdx = 0;
+        for (let i = 0; i < models.length; i++) {
+          if (models[i] === this.selectedModel) {
+            foundIdx = i;
+            break;
+          }
+        }
+        this.modelIndex = foundIdx;
+        this.selectedModel = models[foundIdx];
+      } else {
+        // 获取失败，使用默认模型
+        const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-chat';
+        this.modelOptions = [{ value: defaultModel }];
+        this.modelIndex = 0;
+        this.selectedModel = defaultModel;
+        this.testResult = '连接成功（无法获取模型列表，使用默认模型）';
+      }
+
+      // 查询余额（仅 DeepSeek）
+      if (provider === 'deepseek') {
+        const balance = await fetchBalance(apiKey);
+        if (balance) {
+          this.balanceInfo = balance;
+        }
+      }
     } else {
       this.testResult = '连接失败，请检查网络和 API Key';
       this.testColor = '#FF3B30';
     }
   }
 
-  private async handleConfirm(): Promise<void> {
+  private handleConfirm(): void {
     if (!this.apiKeyInput.trim()) {
       return;
     }
+    const ctx = getContext(this);
     const provider = this.getProviderName(this.providerIndex);
-    await saveProvider(getContext(this), provider);
-    await saveApiKey(getContext(this), this.apiKeyInput.trim());
+    saveProvider(ctx, provider);
+    saveApiKey(ctx, this.apiKeyInput.trim());
+    if (this.selectedModel) {
+      saveModel(ctx, this.selectedModel);
+    }
     router.replaceUrl({ url: 'pages/Index' });
   }
 
@@ -103,6 +156,10 @@ struct Setting {
           .onSelect((index: number, value: string) => {
             this.providerIndex = index;
             this.testResult = '';
+            this.modelOptions = [];
+            this.modelIndex = 0;
+            this.selectedModel = '';
+            this.balanceInfo = '';
           });
       }
       .padding({ left: 12, right: 12 })
@@ -132,6 +189,7 @@ struct Setting {
         .onChange((value: string) => {
           this.apiKeyInput = value;
           this.testResult = '';
+          this.modelOptions = [];
         });
 
       // 连通性测试结果
@@ -143,9 +201,44 @@ struct Setting {
           .margin({ top: 8 });
       }
 
+      // 余额信息
+      if (this.balanceInfo.length > 0) {
+        Text(this.balanceInfo)
+          .fontSize(13)
+          .fontColor('#666666')
+          .width('100%')
+          .margin({ top: 4 });
+      }
+
+      // 模型选择（连接成功后显示）
+      if (this.modelOptions.length > 0) {
+        Text('选择模型')
+          .fontSize(15)
+          .fontColor('#666666')
+          .width('100%')
+          .margin({ top: 16, bottom: 8 });
+
+        Row() {
+          Select(this.modelOptions)
+            .selected(this.modelIndex)
+            .value(this.modelOptions[this.modelIndex].value)
+            .font({ size: 16 })
+            .height(48)
+            .width('100%')
+            .onSelect((index: number, value: string) => {
+              this.modelIndex = index;
+              this.selectedModel = value;
+            });
+        }
+        .padding({ left: 12, right: 12 })
+        .backgroundColor('#F8F9FA')
+        .borderRadius(8)
+        .width('100%')
+        .margin({ bottom: 20 });
+      }
+
       // 按钮区域
       Column() {
-        // 检测连通性
         Button('检测连通性')
           .backgroundColor('#F0F0F0')
           .fontColor('#333333')
@@ -156,7 +249,6 @@ struct Setting {
           .opacity(!this.isTesting && this.apiKeyInput.trim().length > 0 ? 1 : 0.5)
           .onClick(() => this.handleTestConnection());
 
-        // 确认 + 取消
         Row() {
           Button('取消')
             .backgroundColor('#F0F0F0')
@@ -182,7 +274,7 @@ struct Setting {
         .margin({ top: 16 });
       }
       .width('100%')
-      .margin({ top: 32 });
+      .margin({ top: 24 });
     }
     .padding({ left: 24, right: 24 })
     .height('100%')

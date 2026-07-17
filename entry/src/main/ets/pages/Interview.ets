@@ -1,6 +1,6 @@
 import router from '@ohos.router';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { getApiKey, getEndpoint } from '../utils/PreferencesManager';
+import { getApiKey, getEndpoint, getModel } from '../utils/PreferencesManager';
 import {
   buildJDPrompt, parseJDResponse,
   buildQuestionPrompt, parseQuestionResponse,
@@ -26,6 +26,7 @@ struct Interview {
   @State retryCount: number = 0;
 
   private apiKey: string = '';
+  private modelName: string = '';
 
   aboutToAppear(): void {
     const params = router.getParams() as Record<string, Object>;
@@ -106,7 +107,7 @@ struct Interview {
     await this.callWithRetry(async () => {
       const D = 0x0000;
       hilog.info(D, 'AIInterviewer', 'parseJD: 发送LLM请求');
-      const raw = await callLLM(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText));
+      const raw = await callLLM(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText), undefined, this.modelName);
       const jd = parseJDResponse(raw);
       if (jd === null) {
         throw new Error('JD解析失败');
@@ -124,7 +125,7 @@ struct Interview {
         throw new Error('JD 未解析');
       }
       const raw = await callLLM(this.apiKey, '你是一个专业的面试官。',
-        buildQuestionPrompt(this.parsedJD, this.currentRound));
+        buildQuestionPrompt(this.parsedJD, this.currentRound), undefined, this.modelName);
       const q = parseQuestionResponse(raw);
       if (q === null) {
         throw new Error('题目解析失败');
@@ -151,7 +152,7 @@ struct Interview {
         throw new Error('无当前题目');
       }
       const followUp = await callLLM(this.apiKey, '你是一个专业的面试官。',
-        buildFollowUpPrompt(this.currentQuestion, this.currentAnswer, this.qaHistory));
+        buildFollowUpPrompt(this.currentQuestion, this.currentAnswer, this.qaHistory), undefined, this.modelName);
       if (!followUp || followUp.length === 0) {
         throw new Error('追问生成失败');
       }
@@ -203,7 +204,7 @@ struct Interview {
         throw new Error('JD 未解析');
       }
       const raw = await callLLM(this.apiKey, '你是一个专业的面试评估专家。',
-        buildReportPrompt(this.qaHistory, this.parsedJD));
+        buildReportPrompt(this.qaHistory, this.parsedJD), undefined, this.modelName);
       const report = parseReportResponse(raw);
       if (report === null) {
         throw new Error('报告解析失败');

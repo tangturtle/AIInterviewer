@@ -3,6 +3,7 @@ import { preferences } from '@kit.ArkData';
 const STORE_NAME = 'ai_interviewer_prefs';
 const KEY_API_KEY = 'ai_interviewer_api_key';
 const KEY_ENDPOINT = 'ai_interviewer_endpoint';
+const KEY_MODEL = 'ai_interviewer_model';
 
 /** 内置 API 供应商端点 */
 export const BUILTIN_ENDPOINTS: Record<string, string> = {
@@ -10,7 +11,11 @@ export const BUILTIN_ENDPOINTS: Record<string, string> = {
   'deepseek': 'https://api.deepseek.com/v1/chat/completions'
 };
 
-/** 默认供应商 */
+/** 各供应商的默认模型 */
+export const DEFAULT_MODELS: Record<string, string> = {
+  'openai': 'gpt-4',
+  'deepseek': 'deepseek-chat'
+};
 export const DEFAULT_PROVIDER = 'deepseek';
 
 let _pref: preferences.Preferences | null = null;
@@ -57,4 +62,22 @@ export async function getProvider(context: Context): Promise<string> {
 export async function getEndpoint(context: Context): Promise<string> {
   const provider = await getProvider(context);
   return BUILTIN_ENDPOINTS[provider] || BUILTIN_ENDPOINTS[DEFAULT_PROVIDER];
+}
+
+/** 保存选中的模型名称 */
+export async function saveModel(context: Context, model: string): Promise<void> {
+  const store = await getStore(context);
+  await store.put(KEY_MODEL, model);
+  await store.flush();
+}
+
+/** 读取选中的模型名称，未设置返回供应商默认模型 */
+export async function getModel(context: Context): Promise<string> {
+  const store = await getStore(context);
+  const val = await store.get(KEY_MODEL, '') as string;
+  if (val) {
+    return val;
+  }
+  const provider = await getProvider(context);
+  return DEFAULT_MODELS[provider] || 'deepseek-chat';
 }

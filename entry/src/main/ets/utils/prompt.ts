@@ -14,6 +14,9 @@ import type {
 /** 默认 LLM API 端点（Provider 配置后通过 Preferences 覆盖） */
 export const DEFAULT_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 
+/** 默认模型名 */
+export const DEFAULT_MODEL = 'deepseek-chat';
+
 // ── 内部辅助：LLM 调用封装 ─────────────────────────────────
 
 /**
@@ -29,10 +32,11 @@ export async function callLLM(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
-  endpoint: string = DEFAULT_ENDPOINT
+  endpoint: string = DEFAULT_ENDPOINT,
+  model: string = DEFAULT_MODEL
 ): Promise<string> {
   const body = {
-    model: 'gpt-4',
+    model: model,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
