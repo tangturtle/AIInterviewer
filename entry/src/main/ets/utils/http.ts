@@ -24,36 +24,30 @@ export async function post(url: string, body: object, apiKey: string): Promise<s
 }
 
 /**
- * 测试 API 连通性
+ * 测试 API 连通性（通过 GET /v1/models 检查认证和网络）
  */
 export async function testConnection(apiKey: string, endpoint: string): Promise<boolean> {
+  const baseUrl = getBaseUrl(endpoint);
+  const url = baseUrl + '/v1/models';
   const httpRequest = http.createHttp();
   try {
-    const body = {
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: 'Hi' }],
-      max_tokens: 5,
-      temperature: 0
-    };
-    const response = await httpRequest.request(endpoint, {
-      method: http.RequestMethod.POST,
+    const response = await httpRequest.request(url, {
+      method: http.RequestMethod.GET,
       header: {
-        'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + apiKey
       },
-      extraData: JSON.stringify(body),
       expectDataType: http.HttpDataType.STRING,
       connectTimeout: 10000,
       readTimeout: 15000
     });
-    const respCode = response.responseCode;
-    return respCode >= 200 && respCode < 300;
+    return response.responseCode === 200;
   } catch (err) {
     return false;
   } finally {
     httpRequest.destroy();
   }
 }
+
 
 /**
  * 获取 API 供应商的基 URL（从完整端点中提取）
