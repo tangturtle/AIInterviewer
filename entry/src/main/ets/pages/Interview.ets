@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getApiKey } from '../utils/PreferencesManager';
 import {
   buildJDPrompt, parseJDResponse,
@@ -103,6 +104,8 @@ struct Interview {
     this.pageState = 'loading_jd';
     this.retryCount = 0;
     await this.callWithRetry(async () => {
+      const D = 0x0000;
+      hilog.info(D, 'AIInterviewer', 'parseJD: 发送LLM请求');
       const raw = await callLLM(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText));
       const jd = parseJDResponse(raw);
       if (jd === null) {
@@ -223,6 +226,9 @@ struct Interview {
         this.retryCount++;
         if (this.retryCount >= 3) {
           this.errorMessage = '请求失败，请检查网络连接和 API Key 是否正确';
+          const D = 0x0000;
+          const errMsg = (err as Error).message || JSON.stringify(err);
+          hilog.error(D, 'AIInterviewer', 'callWithRetry: 3次失败, error=%{public}s', errMsg);
           this.pageState = 'error';
           return;
         }
