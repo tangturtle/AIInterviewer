@@ -11,7 +11,10 @@ struct Setting {
   @State testColor: string = '#999999';
   @State isTesting: boolean = false;
 
-  private providerOptions: string[] = ['DeepSeek', 'OpenAI'];
+  private providerOptions: SelectOption[] = [
+    { value: 'DeepSeek' },
+    { value: 'OpenAI' }
+  ];
 
   aboutToAppear(): void {
     this.loadSettings();
@@ -93,11 +96,11 @@ struct Setting {
       Row() {
         Select(this.providerOptions)
           .selected(this.providerIndex)
-          .value(this.providerOptions[this.providerIndex])
+          .value(this.providerOptions[this.providerIndex].value)
           .font({ size: 16 })
           .height(48)
           .width('100%')
-          .onChange((index: number) => {
+          .onChange((value: string, index: number) => {
             this.providerIndex = index;
             this.testResult = '';
           });
