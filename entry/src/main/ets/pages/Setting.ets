@@ -60,9 +60,10 @@ struct Setting {
 
     const provider = this.getProviderName(this.providerIndex);
     const endpoint = BUILTIN_ENDPOINTS[provider];
+    const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-chat';
     const apiKey = this.apiKeyInput.trim();
 
-    const ok = await testConnection(apiKey, endpoint);
+    const ok = await testConnection(apiKey, endpoint, defaultModel);
     this.isTesting = false;
 
     if (ok) {

@@ -24,29 +24,40 @@ export async function post(url: string, body: object, apiKey: string): Promise<s
 }
 
 /**
- * 测试 API 连通性（通过 GET /v1/models 检查认证和网络）
+ * 测试 API 连通性（通过 POST 最小请求检查认证和网络）
+ * @param apiKey - API Key
+ * @param endpoint - LLM API 端点
+ * @param model - 模型名（可选，默认自动检测）
  */
-export async function testConnection(apiKey: string, endpoint: string): Promise<boolean> {
-  const baseUrl = getBaseUrl(endpoint);
-  const url = baseUrl + '/v1/models';
+export async function testConnection(apiKey: string, endpoint: string, model: string = 'deepseek-chat'): Promise<boolean> {
   const httpRequest = http.createHttp();
   try {
-    const response = await httpRequest.request(url, {
-      method: http.RequestMethod.GET,
+    const body = {
+      model: model,
+      messages: [{ role: 'user', content: 'hi' }],
+      max_tokens: 5,
+      temperature: 0
+    };
+    const response = await httpRequest.request(endpoint, {
+      method: http.RequestMethod.POST,
       header: {
+        'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + apiKey
       },
+      extraData: JSON.stringify(body),
       expectDataType: http.HttpDataType.STRING,
       connectTimeout: 10000,
       readTimeout: 15000
     });
-    return response.responseCode === 200;
+    return response.responseCode < 400;
   } catch (err) {
     return false;
   } finally {
     httpRequest.destroy();
   }
 }
+
+
 
 
 /**
