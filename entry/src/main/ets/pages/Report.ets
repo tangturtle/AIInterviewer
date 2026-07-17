@@ -1,4 +1,4 @@
-import { router } from '@kit.AbilityKit';
+import router from '@ohos.router';
 import type { InterviewReport } from '../utils/types';
 
 @Entry

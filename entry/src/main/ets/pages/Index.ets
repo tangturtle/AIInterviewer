@@ -1,4 +1,4 @@
-import { router } from '@kit.AbilityKit';
+import router from '@ohos.router';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { hasApiKey, saveApiKey } from '../utils/PreferencesManager';
 
@@ -26,7 +26,7 @@ struct Index {
       const pasteData = await pasteboard.getSystemPasteboard().getData();
       if (pasteData) {
         const record = pasteData.getRecord(0);
-        const text = record.convertToText();
+        const text = await record.convertToText();
         if (text) {
           this.jdText = text;
         }

@@ -1,4 +1,4 @@
-import { router } from '@kit.AbilityKit';
+import router from '@ohos.router';
 import { getApiKey } from '../utils/PreferencesManager';
 import {
   buildJDPrompt, parseJDResponse,
@@ -168,7 +168,7 @@ struct Interview {
       return;
     }
 
-    const followUpItem: { question: string; answer: string } = {
+    const followUpItem = {
       question: this.followUpQuestion,
       answer: this.followUpAnswer
     };

@@ -20,7 +20,7 @@ export async function saveApiKey(context: Context, key: string): Promise<void> {
 
 export async function getApiKey(context: Context): Promise<string | null> {
   const store = await getStore(context);
-  const val = await store.get(KEY_API_KEY, '');
+  const val = await store.get(KEY_API_KEY, '') as string;
   return val || null;
 }
 
