@@ -100,7 +100,7 @@ struct Setting {
           .font({ size: 16 })
           .height(48)
           .width('100%')
-          .onSelect((value: string, index: number) => {
+          .onSelect((index: number, value: string) => {
             this.providerIndex = index;
             this.testResult = '';
           });
