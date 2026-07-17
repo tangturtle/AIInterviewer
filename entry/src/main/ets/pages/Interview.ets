@@ -228,6 +228,9 @@ struct Interview {
           this.errorMessage = '请求失败，请检查网络连接和 API Key 是否正确';
           const D = 0x0000;
           const errMsg = (err as Error).message || JSON.stringify(err);
+          if (errMsg.includes('timeout') || errMsg.includes('Timeout') || errMsg.includes('28')) {
+            this.errorMessage = '网络请求超时，请检查网络连接或更换 API 端点';
+          }
           hilog.error(D, 'AIInterviewer', 'callWithRetry: 3次失败, error=%{public}s', errMsg);
           this.pageState = 'error';
           return;

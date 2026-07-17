@@ -10,7 +10,9 @@ export async function post(url: string, body: object, apiKey: string): Promise<s
         'Authorization': 'Bearer ' + apiKey
       },
       extraData: JSON.stringify(body),
-      expectDataType: http.HttpDataType.STRING
+      expectDataType: http.HttpDataType.STRING,
+      connectTimeout: 15000,
+      readTimeout: 30000
     });
     return response.result as string;
   } finally {
