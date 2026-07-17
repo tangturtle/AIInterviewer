@@ -14,6 +14,9 @@ export async function post(url: string, body: object, apiKey: string): Promise<s
       connectTimeout: 15000,
       readTimeout: 30000
     });
+    if (response.responseCode < 200 || response.responseCode >= 300) {
+      throw new Error('API 返回错误码: ' + response.responseCode);
+    }
     return response.result as string;
   } finally {
     httpRequest.destroy();
@@ -44,7 +47,7 @@ export async function testConnection(apiKey: string, endpoint: string): Promise<
       readTimeout: 15000
     });
     const respCode = response.responseCode;
-    return respCode >= 200 && respCode < 500;
+    return respCode >= 200 && respCode < 300;
   } catch (err) {
     return false;
   } finally {
