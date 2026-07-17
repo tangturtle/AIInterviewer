@@ -27,11 +27,17 @@ export interface InterviewQuestion {
   focusArea: string;          // 考察维度
 }
 
+/** 单轮追问记录 */
+export interface FollowUpItem {
+  question: string;
+  answer: string;
+}
+
 /** 一轮问答（含追问） */
 export interface QAPair {
   question: InterviewQuestion;
   answer: string;
-  followUps: { question: string; answer: string }[];
+  followUps: FollowUpItem[];
 }
 
 /** 评分维度枚举 */

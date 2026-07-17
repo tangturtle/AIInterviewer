@@ -7,7 +7,7 @@ import {
   buildReportPrompt, parseReportResponse,
   callLLM
 } from '../utils/prompt';
-import type { ParsedJD, InterviewQuestion, QAPair, InterviewReport } from '../utils/types';
+import type { ParsedJD, InterviewQuestion, QAPair, InterviewReport, FollowUpItem } from '../utils/types';
 
 @Entry
 @Component
@@ -168,7 +168,7 @@ struct Interview {
       return;
     }
 
-    const followUpItem = {
+    const followUpItem: FollowUpItem = {
       question: this.followUpQuestion,
       answer: this.followUpAnswer
     };
