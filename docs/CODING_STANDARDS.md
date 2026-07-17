@@ -163,7 +163,7 @@ hilog.info(DOMAIN, TAG, 'JD parsed successfully: %{public}s', position);
 hilog.debug(DOMAIN, TAG, 'API response: %{private}s', responseText);
 ```
 
-> ⚠️ 当前 `EntryAbility.ets` 使用模板默认的 `'testTag'`，需在后续提交中统一改为 `'AIInterviewer'`。
+> ✅ `EntryAbility.ets` 的 hilog tag 已从 `'testTag'` 统一为 `'AIInterviewer'`。
 
 ---
 

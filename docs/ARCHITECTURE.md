@@ -51,20 +51,22 @@ entry/src/main/ets/
 ├── entrybackupability/
 │   └── EntryBackupAbility.ets    # 备份扩展（BackupExtensionAbility）
 ├── pages/
-│   └── Index.ets                 # 首页 Hello World（点击→Welcome）
+│   ├── Index.ets                 # 首页 JD 输入（占位 → 待实现完整 UI）
+│   ├── Interview.ets             # 面试答题页（占位）
+│   └── Report.ets                # 面试报告页（占位）
 └── utils/
     ├── PreferencesManager.ets    # API Key 持久化（save/get/has）
-    └── http.ts                   # HTTP POST 封装（⚠️ 含占位符需修复）
+    ├── http.ts                   # HTTP POST 封装（⚠️ 含占位符需修复）
+    └── types.ts                  # 共享类型定义（ParsedJD, QAPair, Report 等）
 ```
 
 ### 尚未实现的规划模块
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| `pages/Interview.ets` | ❌ 未创建 | 面试答题页 — 展示题目、语音/文字输入、计时 |
-| `pages/Report.ets` | ❌ 未创建 | 反馈报告页 — 三维度评分、改进建议 |
 | `utils/prompt.ts` | ❌ 未创建 | LLM 提示词工程 — JD 解析、面试题生成、追问、评分 |
-| 页面路由注册 | ❌ 未扩展 | `main_pages.json` 仅注册了 Index |
+| `pages/Interview.ets` | ⏳ 占位页 | 面试答题页 — 展示题目、语音/文字输入、计时（路由就绪） |
+| `pages/Report.ets` | ⏳ 占位页 | 反馈报告页 — 三维度评分、改进建议（路由就绪） |
 | 元服务卡片 | ❌ 未实现 | 规划中的鸿蒙特色功能 |
 
 ## 路由设计
