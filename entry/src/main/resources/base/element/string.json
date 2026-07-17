@@ -11,6 +11,130 @@
     {
       "name": "EntryAbility_label",
       "value": "label"
+    },
+    {
+      "name": "app_name",
+      "value": "AI模拟面试官"
+    },
+    {
+      "name": "index_title",
+      "value": "AI 模拟面试官"
+    },
+    {
+      "name": "index_subtitle",
+      "value": "粘贴 JD，开始智能面试陪练"
+    },
+    {
+      "name": "index_jd_placeholder",
+      "value": "请粘贴职位描述（JD）文本..."
+    },
+    {
+      "name": "index_paste_button",
+      "value": "粘贴"
+    },
+    {
+      "name": "index_start_button",
+      "value": "开始面试"
+    },
+    {
+      "name": "index_jd_empty_toast",
+      "value": "请先输入职位描述"
+    },
+    {
+      "name": "index_api_key_title",
+      "value": "配置 API Key"
+    },
+    {
+      "name": "index_api_key_placeholder",
+      "value": "请输入您的 OpenAI API Key"
+    },
+    {
+      "name": "index_api_key_save",
+      "value": "保存"
+    },
+    {
+      "name": "index_api_key_saved",
+      "value": "API Key 已保存"
+    },
+    {
+      "name": "interview_loading_jd",
+      "value": "正在解析职位描述..."
+    },
+    {
+      "name": "interview_loading_question",
+      "value": "正在生成面试题..."
+    },
+    {
+      "name": "interview_loading_followup",
+      "value": "正在生成追问..."
+    },
+    {
+      "name": "interview_loading_report",
+      "value": "正在生成评估报告..."
+    },
+    {
+      "name": "interview_submit",
+      "value": "提交回答"
+    },
+    {
+      "name": "interview_round_progress",
+      "value": "第 %d/3 题"
+    },
+    {
+      "name": "interview_followup_label",
+      "value": "追问"
+    },
+    {
+      "name": "interview_answer_placeholder",
+      "value": "请输入你的回答..."
+    },
+    {
+      "name": "interview_network_error",
+      "value": "网络连接失败，请检查网络后重试"
+    },
+    {
+      "name": "interview_api_key_invalid",
+      "value": "API Key 无效，请返回首页重新配置"
+    },
+    {
+      "name": "interview_parse_error",
+      "value": "响应解析失败，正在重试..."
+    },
+    {
+      "name": "interview_retry_exhausted",
+      "value": "重试失败，请返回首页重新开始"
+    },
+    {
+      "name": "interview_back_home",
+      "value": "返回首页"
+    },
+    {
+      "name": "report_title",
+      "value": "面试评估报告"
+    },
+    {
+      "name": "report_overall_label",
+      "value": "综合评分"
+    },
+    {
+      "name": "report_technical_label",
+      "value": "技术深度"
+    },
+    {
+      "name": "report_expression_label",
+      "value": "表达沟通"
+    },
+    {
+      "name": "report_logic_label",
+      "value": "逻辑思维"
+    },
+    {
+      "name": "report_suggestions_label",
+      "value": "改进建议"
+    },
+    {
+      "name": "report_restart_button",
+      "value": "再来一次"
     }
   ]
 }
