@@ -1,22 +1,32 @@
+import { router } from '@kit.AbilityKit';
+import { getApiKey } from '../utils/PreferencesManager';
+import {
+  buildJDPrompt, parseJDResponse,
+  buildQuestionPrompt, parseQuestionResponse,
+  buildFollowUpPrompt,
+  buildReportPrompt, parseReportResponse,
+  callLLM
+} from '../utils/prompt';
+import type { ParsedJD, InterviewQuestion, QAPair, InterviewReport } from '../utils/types';
+
 @Entry
 @Component
 struct Interview {
   @State pageState: string = 'loading_jd';
   @State jdText: string = '';
-  @State parsedJD: object | null = null;
+  @State parsedJD: ParsedJD | null = null;
   @State currentRound: number = 1;
-  @State currentQuestion: object | null = null;
+  @State currentQuestion: InterviewQuestion | null = null;
   @State currentAnswer: string = '';
   @State followUpQuestion: string = '';
   @State followUpAnswer: string = '';
-  @State qaHistory: object[] = [];
+  @State qaHistory: QAPair[] = [];
   @State errorMessage: string = '';
   @State retryCount: number = 0;
 
   private apiKey: string = '';
 
   aboutToAppear(): void {
-    const { router } = require('@kit.AbilityKit');
     const params = router.getParams() as Record<string, Object>;
     if (!params || !params.jdText) {
       this.errorMessage = '缺少必要参数';
@@ -27,17 +37,65 @@ struct Interview {
     this.startInterviewFlow();
   }
 
+  // ── 计算属性辅助方法 ─────────────────────────────────
+
+  private getQuestionTypeColor(): string {
+    if (this.currentQuestion === null) {
+      return '#007DFF';
+    }
+    const qType = this.currentQuestion.type;
+    if (qType === 'technical') {
+      return '#007DFF';
+    } else if (qType === 'behavioral') {
+      return '#FF9500';
+    }
+    return '#34C759';
+  }
+
+  private getQuestionTypeLabel(): string {
+    if (this.currentQuestion === null) {
+      return '技术';
+    }
+    const qType = this.currentQuestion.type;
+    if (qType === 'technical') {
+      return '技术';
+    } else if (qType === 'behavioral') {
+      return '行为';
+    }
+    return '项目';
+  }
+
+  private getQuestionText(): string {
+    if (this.currentQuestion === null) {
+      return '';
+    }
+    return this.currentQuestion.text;
+  }
+
+  private getQuestionFocusArea(): string {
+    if (this.currentQuestion === null) {
+      return '';
+    }
+    return this.currentQuestion.focusArea;
+  }
+
+  private isStepActive(step: number): boolean {
+    return step <= this.currentRound;
+  }
+
+  private isStepCurrent(step: number): boolean {
+    return step === this.currentRound;
+  }
+
+  // ── 业务流程 ────────────────────────────────────────
+
   private async startInterviewFlow(): Promise<void> {
-    // Step 1: 从 Preferences 获取 API Key
-    const { getApiKey } = require('../utils/PreferencesManager');
-    this.apiKey = (await getApiKey(getContext())) || '';
+    this.apiKey = (await getApiKey(getContext(this))) || '';
     if (!this.apiKey) {
       this.errorMessage = '请先配置 API Key';
       this.pageState = 'error';
       return;
     }
-
-    // Step 2: 解析 JD
     await this.parseJD();
   }
 
@@ -45,10 +103,9 @@ struct Interview {
     this.pageState = 'loading_jd';
     this.retryCount = 0;
     await this.callWithRetry(async () => {
-      const { buildJDPrompt, parseJDResponse, callLLM } = require('../utils/prompt');
       const raw = await callLLM(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText));
       const jd = parseJDResponse(raw);
-      if (!jd) {
+      if (jd === null) {
         throw new Error('JD解析失败');
       }
       this.parsedJD = jd;
@@ -60,11 +117,13 @@ struct Interview {
     this.pageState = 'loading_question';
     this.retryCount = 0;
     await this.callWithRetry(async () => {
-      const { buildQuestionPrompt, parseQuestionResponse, callLLM } = require('../utils/prompt');
+      if (this.parsedJD === null) {
+        throw new Error('JD 未解析');
+      }
       const raw = await callLLM(this.apiKey, '你是一个专业的面试官。',
-        buildQuestionPrompt(this.parsedJD as Record<string, Object>, this.currentRound));
+        buildQuestionPrompt(this.parsedJD, this.currentRound));
       const q = parseQuestionResponse(raw);
-      if (!q) {
+      if (q === null) {
         throw new Error('题目解析失败');
       }
       this.currentQuestion = q;
@@ -85,13 +144,11 @@ struct Interview {
     this.pageState = 'loading_followup';
     this.retryCount = 0;
     await this.callWithRetry(async () => {
-      const { buildFollowUpPrompt, callLLM } = require('../utils/prompt');
+      if (this.currentQuestion === null) {
+        throw new Error('无当前题目');
+      }
       const followUp = await callLLM(this.apiKey, '你是一个专业的面试官。',
-        buildFollowUpPrompt(
-          this.currentQuestion as Record<string, Object>,
-          this.currentAnswer,
-          this.qaHistory as Record<string, Object>[]
-        ));
+        buildFollowUpPrompt(this.currentQuestion, this.currentAnswer, this.qaHistory));
       if (!followUp || followUp.length === 0) {
         throw new Error('追问生成失败');
       }
@@ -107,13 +164,24 @@ struct Interview {
     }
     this.followUpAnswer = answer;
 
-    // 将本轮问答存入历史
-    const qaEntry = {
+    if (this.currentQuestion === null) {
+      return;
+    }
+
+    const followUpItem: { question: string; answer: string } = {
+      question: this.followUpQuestion,
+      answer: this.followUpAnswer
+    };
+    const qaEntry: QAPair = {
       question: this.currentQuestion,
       answer: this.currentAnswer,
-      followUps: [{ question: this.followUpQuestion, answer: this.followUpAnswer }]
+      followUps: [followUpItem]
     };
-    const newHistory = [...this.qaHistory, qaEntry];
+    const newHistory: QAPair[] = [];
+    for (let i = 0; i < this.qaHistory.length; i++) {
+      newHistory.push(this.qaHistory[i]);
+    }
+    newHistory.push(qaEntry);
     this.qaHistory = newHistory;
 
     if (this.currentRound < 3) {
@@ -128,18 +196,15 @@ struct Interview {
     this.pageState = 'loading_report';
     this.retryCount = 0;
     await this.callWithRetry(async () => {
-      const { buildReportPrompt, parseReportResponse, callLLM } = require('../utils/prompt');
+      if (this.parsedJD === null) {
+        throw new Error('JD 未解析');
+      }
       const raw = await callLLM(this.apiKey, '你是一个专业的面试评估专家。',
-        buildReportPrompt(
-          this.qaHistory as Record<string, Object>[],
-          this.parsedJD as Record<string, Object>
-        ));
+        buildReportPrompt(this.qaHistory, this.parsedJD));
       const report = parseReportResponse(raw);
-      if (!report) {
+      if (report === null) {
         throw new Error('报告解析失败');
       }
-      // 跳转到报告页
-      const { router } = require('@kit.AbilityKit');
       router.replaceUrl({
         url: 'pages/Report',
         params: {
@@ -161,23 +226,28 @@ struct Interview {
           this.pageState = 'error';
           return;
         }
-        // 自动重试（短暂延迟）
-        await new Promise(r => setTimeout(r, 500));
+        // 自动重试
+        await new Promise<string>((resolve) => {
+          setTimeout((): void => {
+            resolve('');
+          }, 500);
+        });
       }
     }
   }
 
   private goBack(): void {
-    const { router } = require('@kit.AbilityKit');
     router.back();
   }
+
+  // ── UI 构建 ──────────────────────────────────────────
 
   build() {
     Column() {
       if (this.pageState === 'loading_jd' || this.pageState === 'loading_question' ||
           this.pageState === 'loading_followup' || this.pageState === 'loading_report') {
         this.LoadingView();
-      } else if (this.pageState === 'awaiting_answer' && this.currentQuestion) {
+      } else if (this.pageState === 'awaiting_answer' && this.currentQuestion !== null) {
         this.QuestionView();
       } else if (this.pageState === 'awaiting_followup_answer') {
         this.FollowUpView();
@@ -209,13 +279,16 @@ struct Interview {
   }
 
   private getLoadingText(): string {
-    const texts: Record<string, string> = {
-      'loading_jd': '正在解析职位描述...',
-      'loading_question': '正在生成面试题...',
-      'loading_followup': '正在生成追问...',
-      'loading_report': '正在生成评估报告...'
-    };
-    return texts[this.pageState] || '加载中...';
+    if (this.pageState === 'loading_jd') {
+      return '正在解析职位描述...';
+    } else if (this.pageState === 'loading_question') {
+      return '正在生成面试题...';
+    } else if (this.pageState === 'loading_followup') {
+      return '正在生成追问...';
+    } else if (this.pageState === 'loading_report') {
+      return '正在生成评估报告...';
+    }
+    return '加载中...';
   }
 
   @Builder
@@ -223,77 +296,45 @@ struct Interview {
     Scroll() {
       Column() {
         // 进度指示
-        Text(`第 ${this.currentRound}/3 题`)
+        Text('第 ' + this.currentRound + '/3 题')
           .fontSize(14)
           .fontColor('#999999')
           .width('100%')
           .margin({ bottom: 8 });
 
-        // 进度条
-        Row() {
-          ForEach([1, 2, 3], (i: number) => {
-            Row() {
-              if (i > 1) {
-                Divider()
-                  .height(2)
-                  .backgroundColor(i <= this.currentRound ? '#0A59F7' : '#E0E0E0')
-                  .width(40);
-              }
-              Text(`${i}`)
-                .fontSize(12)
-                .fontColor(i <= this.currentRound ? Color.White : '#999999')
-                .backgroundColor(i <= this.currentRound ? '#0A59F7' : '#F0F0F0')
-                .width(24)
-                .height(24)
-                .borderRadius(12)
-                .textAlign(TextAlign.Center);
-            }
-          })
-        }
-        .width('100%')
-        .justifyContent(FlexAlign.Center)
-        .margin({ bottom: 20 });
+        this.ProgressBarComponent();
 
         // 题目卡片
-        if (this.currentQuestion) {
-          const q = this.currentQuestion as Record<string, Object>;
-          const qType = q.type as string;
-          const typeColor = qType === 'technical' ? '#007DFF' :
-                            qType === 'behavioral' ? '#FF9500' : '#34C759';
-          const typeLabel = qType === 'technical' ? '技术' :
-                            qType === 'behavioral' ? '行为' : '项目';
-
-          Column() {
-            Row() {
-              Text(typeLabel)
-                .fontSize(12)
-                .fontColor(Color.White)
-                .backgroundColor(typeColor)
-                .borderRadius(4)
-                .padding({ left: 8, right: 8, top: 2, bottom: 2 });
-            }
-            .width('100%')
-            .margin({ bottom: 12 });
-
-            Text(q.text as string)
-              .fontSize(17)
-              .fontColor('#333333')
-              .lineHeight(26)
-              .width('100%');
-
-            if (q.focusArea) {
-              Text(`考察维度：${q.focusArea as string}`)
-                .fontSize(13)
-                .fontColor('#999999')
-                .margin({ top: 12 })
-                .width('100%');
-            }
+        Column() {
+          Row() {
+            Text(this.getQuestionTypeLabel())
+              .fontSize(12)
+              .fontColor(Color.White)
+              .backgroundColor(this.getQuestionTypeColor())
+              .borderRadius(4)
+              .padding({ left: 8, right: 8, top: 2, bottom: 2 });
           }
-          .padding(16)
-          .backgroundColor('#F8F9FA')
-          .borderRadius(12)
-          .width('100%');
+          .width('100%')
+          .margin({ bottom: 12 });
+
+          Text(this.getQuestionText())
+            .fontSize(17)
+            .fontColor('#333333')
+            .lineHeight(26)
+            .width('100%');
+
+          if (this.getQuestionFocusArea().length > 0) {
+            Text('考察维度：' + this.getQuestionFocusArea())
+              .fontSize(13)
+              .fontColor('#999999')
+              .margin({ top: 12 })
+              .width('100%');
+          }
         }
+        .padding(16)
+        .backgroundColor('#F8F9FA')
+        .borderRadius(12)
+        .width('100%');
 
         // 回答输入
         TextArea({
@@ -329,6 +370,33 @@ struct Interview {
   }
 
   @Builder
+  ProgressBarComponent(): void {
+    Row() {
+      ForEach([1, 2, 3], (i: number) => {
+        Row() {
+          if (i > 1) {
+            Divider()
+              .height(2)
+              .backgroundColor(this.isStepActive(i) ? '#0A59F7' : '#E0E0E0')
+              .width(40);
+          }
+          Text('' + i)
+            .fontSize(12)
+            .fontColor(this.isStepActive(i) ? Color.White : '#999999')
+            .backgroundColor(this.isStepActive(i) ? '#0A59F7' : '#F0F0F0')
+            .width(24)
+            .height(24)
+            .borderRadius(12)
+            .textAlign(TextAlign.Center);
+        }
+      })
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .margin({ bottom: 20 });
+  }
+
+  @Builder
   FollowUpView(): void {
     Scroll() {
       Column() {
@@ -339,7 +407,6 @@ struct Interview {
           .width('100%')
           .margin({ bottom: 12 });
 
-        // 追问文本
         Text(this.followUpQuestion)
           .fontSize(16)
           .fontColor('#333333')
@@ -349,7 +416,6 @@ struct Interview {
           .backgroundColor('#FFF8E1')
           .borderRadius(12);
 
-        // 回答输入
         TextArea({
           text: this.followUpAnswer,
           placeholder: '请输入你的回答...'
@@ -365,7 +431,6 @@ struct Interview {
             this.followUpAnswer = value;
           });
 
-        // 提交按钮
         Button('提交回答')
           .backgroundColor('#0A59F7')
           .fontColor(Color.White)
@@ -385,9 +450,8 @@ struct Interview {
   @Builder
   ErrorView(): void {
     Column() {
-      Image($r('app.media.app_icon'))
-        .width(64)
-        .height(64)
+      Text('❌')
+        .fontSize(48)
         .margin({ bottom: 16 });
 
       Text(this.errorMessage)

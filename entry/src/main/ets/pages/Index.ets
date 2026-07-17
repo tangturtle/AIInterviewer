@@ -1,3 +1,7 @@
+import { router } from '@kit.AbilityKit';
+import { pasteboard } from '@kit.BasicServicesKit';
+import { hasApiKey, saveApiKey } from '../utils/PreferencesManager';
+
 @Entry
 @Component
 struct Index {
@@ -11,8 +15,7 @@ struct Index {
   }
 
   private async checkApiKey(): Promise<void> {
-    const { hasApiKey } = require('../utils/PreferencesManager');
-    this.hasKey = await hasApiKey(getContext());
+    this.hasKey = await hasApiKey(getContext(this));
     if (!this.hasKey) {
       this.showApiKeyDialog = true;
     }
@@ -20,7 +23,6 @@ struct Index {
 
   private async pasteFromClipboard(): Promise<void> {
     try {
-      const { pasteboard } = require('@kit.BasicServicesKit');
       const pasteData = await pasteboard.getSystemPasteboard().getData();
       if (pasteData) {
         const record = pasteData.getRecord(0);
@@ -38,7 +40,6 @@ struct Index {
     if (!this.jdText.trim()) {
       return;
     }
-    const { router } = require('@kit.AbilityKit');
     router.pushUrl({
       url: 'pages/Interview',
       params: {
@@ -51,8 +52,7 @@ struct Index {
     if (!this.apiKeyInput.trim()) {
       return;
     }
-    const { saveApiKey } = require('../utils/PreferencesManager');
-    await saveApiKey(getContext(), this.apiKeyInput.trim());
+    await saveApiKey(getContext(this), this.apiKeyInput.trim());
     this.hasKey = true;
     this.showApiKeyDialog = false;
     this.apiKeyInput = '';
