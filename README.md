@@ -21,6 +21,8 @@
 
 **⚙️ 运行时配置** — 应用内配置页面管理 API Key、供应商选择（DeepSeek / OpenAI）、模型选择；配置仅存本地 Preferences，不提交 git。
 
+**🔁 缓存连通测试** — 测试结果、模型列表、余额自动缓存，切换页面无需重复检测；首页可直接切换模型。
+
 **📱 跨端协同（规划中）** — 手机答题 + 平板看报告，通过鸿蒙分布式数据对象同步面试进度。
 
 ---
@@ -100,15 +102,20 @@ git clone https://github.com/tangturtle/AIInterviewer.git
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
-| EntryAbility | ✅ | hilog tag `'AIInterviewer'`，路由加载 |
-| pages/Index.ets | ✅ | JD 输入、粘贴、API Key 检查、跳转面试 |
+| EntryAbility | ✅ | hilog tag `'AIInterviewer'`，Navigation 路由加载 `pages/App` |
+| pages/Index.ets | ✅ | JD 输入、粘贴、模型快速切换、余额展示 |
 | pages/Interview.ets | ✅ | 7 态状态机：JD 解析 → 出题 → 答题 → 追问 → 评分 |
 | pages/Report.ets | ✅ | 三维度评分展示 + 再来一次 |
-| pages/Setting.ets | ✅ | 供应商选择、API Key 管理、连通性测试、模型下拉、余额查询 |
-| utils/PreferencesManager.ets | ✅ | save/get/has API Key + 供应商 + 模型 |
-| utils/http.ts | ✅ | POST 封装 + testConnection GET/POST + fetchModels + fetchBalance |
+| pages/Setting.ets | ✅ | 供应商/模型选择、API Key 管理、连通性测试、余额查询、缓存自动恢复 |
+| pages/App.ets | ✅ | Navigation 主机（NavPathStack + 子页注册） |
+| utils/PreferencesManager.ets | ✅ | 持久化 + TestCache 缓存系统 |
+| utils/http.ts | ✅ | POST 封装 + testConnection + fetchModels + fetchBalance + getModelsUrl |
 | utils/prompt.ts | ✅ | JD 解析 / 出题 / 追问 / 评分 prompt + 响应解析 |
 | utils/types.ts | ✅ | ParsedJD / InterviewQuestion / QAPair / InterviewReport / FollowUpItem |
+| 深色模式 | ✅ | 31 色令牌系统，base + dark 双主题映射 |
+| 平板自适应 | ✅ | constraintSize maxWidth:600 + expandSafeArea |
+| 无障碍 | ✅ | 19 处 accessibilityText 全覆盖 |
+| Navigation 迁移 | ✅ | router → NavPathStack 已迁移 |
 | 元服务卡片 | ❌ | 规划中 |
 | 分布式数据对象 | ❌ | 规划中（手机→平板同步） |
 | 流式输出 | ❌ | 规划中 |

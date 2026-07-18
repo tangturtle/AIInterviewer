@@ -1,4 +1,4 @@
-import { getApiKey, saveApiKey, saveProvider, getProvider, saveModel, getModel, BUILTIN_ENDPOINTS, DEFAULT_PROVIDER, DEFAULT_MODELS } from '../utils/PreferencesManager';
+import { getApiKey, saveApiKey, saveProvider, getProvider, saveModel, getModel, saveTestCache, getTestCache, clearTestCache, BUILTIN_ENDPOINTS, DEFAULT_PROVIDER, DEFAULT_MODELS, TestCache } from '../utils/PreferencesManager';
 import { testConnection, fetchModels, fetchBalance } from '../utils/http';
 
 @Component
@@ -38,6 +38,25 @@ export struct SettingPage {
     this.providerIndex = provider === 'openai' ? 1 : 0;
     const savedModel = await getModel(ctx);
     if (savedModel) { this.selectedModel = savedModel; }
+
+    // 恢复测试缓存，避免每次都需要重新检测连通性
+    const cache = await getTestCache(ctx);
+    const currentProvider = this.getProviderName(this.providerIndex);
+    if (cache && cache.provider === currentProvider && cache.models.length > 0) {
+      this.testResult = cache.testResult;
+      this.balanceInfo = cache.balance;
+      const opts: SelectOption[] = [];
+      for (let i = 0; i < cache.models.length; i++) { opts.push({ value: cache.models[i] }); }
+      this.modelOptions = opts;
+      const idx = cache.models.indexOf(cache.selectedModel);
+      if (idx >= 0) {
+        this.modelIndex = idx;
+        this.selectedModel = cache.models[idx];
+      } else if (cache.models.length > 0) {
+        this.modelIndex = 0;
+        this.selectedModel = cache.models[0];
+      }
+    }
   }
 
   private getProviderName(index: number): string {
@@ -91,18 +110,28 @@ export struct SettingPage {
         const balance = await fetchBalance(apiKey);
         if (balance) { this.balanceInfo = balance; }
       }
+      // 保存测试缓存
+      const modelsArr: string[] = [];
+      for (let i = 0; i < this.modelOptions.length; i++) { modelsArr.push('' + this.modelOptions[i].value); }
+      await saveTestCache(getContext(this), {
+        provider: provider,
+        models: modelsArr,
+        testResult: this.testResult,
+        balance: this.balanceInfo,
+        selectedModel: this.selectedModel
+      });
     } else {
       this.testResult = '✗ 连接失败，请检查网络和 API Key';
     }
   }
 
-  private handleConfirm(): void {
+  private async handleConfirm(): Promise<void> {
     if (!this.apiKeyInput.trim()) { return; }
     const ctx = getContext(this);
     const provider = this.getProviderName(this.providerIndex);
-    saveProvider(ctx, provider);
-    saveApiKey(ctx, this.apiKeyInput.trim());
-    if (this.selectedModel) { saveModel(ctx, this.selectedModel); }
+    await saveProvider(ctx, provider);
+    await saveApiKey(ctx, this.apiKeyInput.trim());
+    if (this.selectedModel) { await saveModel(ctx, this.selectedModel); }
     this.savedFeedback = true;
     setTimeout((): void => {
       this.navStack.pop();
@@ -178,6 +207,7 @@ export struct SettingPage {
                   this.modelIndex = 0;
                   this.selectedModel = '';
                   this.balanceInfo = '';
+                  clearTestCache(getContext(this));
                 })
                 .accessibilityText('选择接口供应商');
             }
@@ -215,6 +245,7 @@ export struct SettingPage {
                   this.apiKeyInput = value;
                   this.testResult = '';
                   this.modelOptions = [];
+                  clearTestCache(getContext(this));
                 })
                 .onFocus((): void => { this.isApiFocused = true; })
                 .onBlur((): void => { this.isApiFocused = false; })

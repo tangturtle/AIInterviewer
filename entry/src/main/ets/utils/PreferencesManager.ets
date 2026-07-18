@@ -4,6 +4,16 @@ const STORE_NAME = 'ai_interviewer_prefs';
 const KEY_API_KEY = 'ai_interviewer_api_key';
 const KEY_ENDPOINT = 'ai_interviewer_endpoint';
 const KEY_MODEL = 'ai_interviewer_model';
+const KEY_TEST_CACHE = 'ai_interviewer_test_cache';
+
+/** 连接测试缓存数据结构 */
+export interface TestCache {
+  provider: string;
+  models: string[];
+  testResult: string;
+  balance: string;
+  selectedModel: string;
+}
 
 /** 内置 API 供应商端点 */
 export const BUILTIN_ENDPOINTS: Record<string, string> = {
@@ -80,4 +90,32 @@ export async function getModel(context: Context): Promise<string> {
   }
   const provider = await getProvider(context);
   return DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
+}
+
+/** 保存连接测试缓存（模型列表、余额、测试结果） */
+export async function saveTestCache(context: Context, cache: TestCache): Promise<void> {
+  const store = await getStore(context);
+  await store.put(KEY_TEST_CACHE, JSON.stringify(cache));
+  await store.flush();
+}
+
+/** 读取连接测试缓存，不存在返回 null */
+export async function getTestCache(context: Context): Promise<TestCache | null> {
+  const store = await getStore(context);
+  const val = await store.get(KEY_TEST_CACHE, '') as string;
+  if (!val) {
+    return null;
+  }
+  try {
+    return JSON.parse(val) as TestCache;
+  } catch {
+    return null;
+  }
+}
+
+/** 清除连接测试缓存（供应商切换 / Key 变更时调用） */
+export async function clearTestCache(context: Context): Promise<void> {
+  const store = await getStore(context);
+  await store.put(KEY_TEST_CACHE, '');
+  await store.flush();
 }

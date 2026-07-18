@@ -1,5 +1,5 @@
 import { pasteboard } from '@kit.BasicServicesKit';
-import { hasApiKey } from '../utils/PreferencesManager';
+import { hasApiKey, getModel, saveModel, getTestCache } from '../utils/PreferencesManager';
 
 @Component
 export struct IndexPage {
@@ -7,6 +7,11 @@ export struct IndexPage {
   @State jdText: string = '';
   @State hasKey: boolean = false;
   @State isFocused: boolean = false;
+  @State selectedModel: string = '';
+  @State modelOptions: SelectOption[] = [];
+  @State modelIndex: number = 0;
+  @State balanceInfo: string = '';
+  @State showModelPicker: boolean = false;
 
   aboutToAppear(): void {
     this.checkApiKey();
@@ -17,6 +22,19 @@ export struct IndexPage {
     if (!this.hasKey) {
       const settingPath: NavPathInfo = { name: 'Setting' };
       this.navStack.replacePath(settingPath);
+      return;
+    }
+    // 加载当前模型
+    this.selectedModel = await getModel(getContext(this));
+    // 恢复测试缓存（模型列表 + 余额）
+    const cache = await getTestCache(getContext(this));
+    if (cache && cache.models.length > 0) {
+      const opts: SelectOption[] = [];
+      for (let i = 0; i < cache.models.length; i++) { opts.push({ value: cache.models[i] }); }
+      this.modelOptions = opts;
+      const idx = cache.models.indexOf(this.selectedModel);
+      this.modelIndex = idx >= 0 ? idx : 0;
+      if (cache.balance) { this.balanceInfo = cache.balance; }
     }
   }
 
@@ -55,6 +73,12 @@ export struct IndexPage {
   private goToSetting(): void {
     const settingPath: NavPathInfo = { name: 'Setting' };
     this.navStack.pushPath(settingPath);
+  }
+
+  private async onModelSelected(index: number, value: string): Promise<void> {
+    this.modelIndex = index;
+    this.selectedModel = value;
+    await saveModel(getContext(this), value);
   }
 
   build() {
@@ -172,36 +196,91 @@ export struct IndexPage {
       .margin({ top: 16 });
 
       // ── API Key 状态卡片 ──────────────────────────
-      Row() {
+      Column() {
         Row() {
-          Text(this.hasKey ? '✓' : '✗')
-            .fontSize(16)
-            .fontColor(this.hasKey ? $r('app.color.text_success') : $r('app.color.text_warning'))
-            .margin({ right: 8 });
-          Column() {
-            Text(this.hasKey ? 'API Key 已配置' : '未配置 API Key')
-              .fontSize(14)
-              .fontColor($r('app.color.text_primary'));
-            if (!this.hasKey) {
-              Text('点击下方「设置」前往配置')
-                .fontSize(12)
-                .fontColor($r('app.color.text_tip'))
-                .margin({ top: 2 });
+          Row() {
+            Text(this.hasKey ? '✓' : '✗')
+              .fontSize(16)
+              .fontColor(this.hasKey ? $r('app.color.text_success') : $r('app.color.text_warning'))
+              .margin({ right: 8 });
+            Column() {
+              Text(this.hasKey ? 'API Key 已配置' : '未配置 API Key')
+                .fontSize(14)
+                .fontColor($r('app.color.text_primary'));
+              if (!this.hasKey) {
+                Text('点击下方「设置」前往配置')
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_tip'))
+                  .margin({ top: 2 });
+              }
             }
+            .alignItems(HorizontalAlign.Start);
           }
-          .alignItems(HorizontalAlign.Start);
-        }
-        .layoutWeight(1);
+          .layoutWeight(1);
 
-        Text('设置 ›')
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_link'))
-          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-          .backgroundColor($r('app.color.primary_light'))
-          .borderRadius(6)
-          .onClick(() => this.goToSetting())
-          .accessibilityText('打开设置页面');
+          Text('设置 ›')
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_link'))
+            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+            .backgroundColor($r('app.color.primary_light'))
+            .borderRadius(6)
+            .onClick(() => this.goToSetting())
+            .accessibilityText('打开设置页面');
+        }
+        .width('100%');
+
+        // ── 模型快速选择行 ─────────────────────────
+        if (this.modelOptions.length > 0) {
+          Row() {
+            Text('模型:')
+              .fontSize(13)
+              .fontColor($r('app.color.text_tip'))
+              .margin({ right: 8 });
+
+            Select(this.modelOptions)
+              .selected(this.modelIndex).value(this.selectedModel)
+              .font({ size: 13 }).height(36).layoutWeight(1)
+              .fontColor($r('app.color.primary'))
+              .optionFont({ size: 13 })
+              .optionFontColor($r('app.color.text_primary'))
+              .optionBgColor($r('app.color.card_background'))
+              .selectedOptionFont({ size: 13, weight: FontWeight.Medium })
+              .selectedOptionFontColor($r('app.color.primary'))
+              .selectedOptionBgColor($r('app.color.primary_light'))
+              .menuBackgroundColor($r('app.color.card_background'))
+              .onSelect((index: number, value: string) => this.onModelSelected(index, value))
+              .accessibilityText('切换模型');
+          }
+          .width('100%')
+          .margin({ top: 10 });
+        } else {
+          Row() {
+            Text('模型:')
+              .fontSize(13)
+              .fontColor($r('app.color.text_tip'))
+              .margin({ right: 6 });
+            Text(this.selectedModel || '未设置')
+              .fontSize(13)
+              .fontColor($r('app.color.text_secondary'));
+          }
+          .width('100%')
+          .margin({ top: 10 });
+        }
+
+        // ── 余额信息行 ───────────────────────────
+        if (this.balanceInfo.length > 0) {
+          Row() {
+            Text('💰')
+              .fontSize(12)
+              .margin({ right: 6 });
+            Text(this.balanceInfo)
+              .fontSize(12)
+              .fontColor($r('app.color.text_tip'));
+          }
+          .width('100%')
+          .margin({ top: 4 });
+        }
       }
       .padding(16)
       .backgroundColor($r('app.color.card_background'))

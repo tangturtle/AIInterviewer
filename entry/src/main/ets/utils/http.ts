@@ -61,25 +61,30 @@ export async function testConnection(apiKey: string, endpoint: string, model: st
 
 
 /**
- * 获取 API 供应商的基 URL（从完整端点中提取）
+ * 从 chat/completions 端点推导模型列表 URL
  */
-function getBaseUrl(endpoint: string): string {
+function getModelsUrl(endpoint: string): string {
+  const suffix = '/chat/completions';
+  if (endpoint.endsWith(suffix)) {
+    // deepseek: https://api.deepseek.com/chat/completions -> https://api.deepseek.com/models
+    // openai:   https://api.openai.com/v1/chat/completions -> https://api.openai.com/v1/models
+    return endpoint.substring(0, endpoint.length - suffix.length) + '/models';
+  }
   const idx = endpoint.indexOf('/v1/');
   if (idx > 0) {
-    return endpoint.substring(0, idx);
+    return endpoint.substring(0, idx) + '/v1/models';
   }
-  return endpoint;
+  return endpoint + '/models';
 }
 
 /**
  * 获取可用模型列表
  * @param apiKey - API Key
- * @param endpoint - LLM API 端点（用于提取基 URL）
+ * @param endpoint - LLM API 端点（用于提取模型列表 URL）
  * @returns 模型 ID 数组，失败返回空数组
  */
 export async function fetchModels(apiKey: string, endpoint: string): Promise<string[]> {
-  const baseUrl = getBaseUrl(endpoint);
-  const url = baseUrl + '/v1/models';
+  const url = getModelsUrl(endpoint);
   const httpRequest = http.createHttp();
   try {
     const response = await httpRequest.request(url, {
