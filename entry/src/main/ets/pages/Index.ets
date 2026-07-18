@@ -1,12 +1,12 @@
-import router from '@ohos.router';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { hasApiKey } from '../utils/PreferencesManager';
 
-@Entry
 @Component
-struct Index {
+export struct IndexPage {
+  navStack: NavPathStack = new NavPathStack();
   @State jdText: string = '';
   @State hasKey: boolean = false;
+  @State isFocused: boolean = false;
 
   aboutToAppear(): void {
     this.checkApiKey();
@@ -15,8 +15,8 @@ struct Index {
   private async checkApiKey(): Promise<void> {
     this.hasKey = await hasApiKey(getContext(this));
     if (!this.hasKey) {
-      // 无 API Key，跳转配置页面
-      router.replaceUrl({ url: 'pages/Setting' });
+      const settingPath: NavPathInfo = { name: 'Setting' };
+      this.navStack.replacePath(settingPath);
     }
   }
 
@@ -24,10 +24,14 @@ struct Index {
     try {
       const pasteData = await pasteboard.getSystemPasteboard().getData();
       if (pasteData) {
-        const record = pasteData.getRecord(0);
-        const text = await record.convertToText();
-        if (text) {
-          this.jdText = text;
+        try {
+          const text: string = pasteData.getPrimaryText();
+          if (text) {
+            this.jdText = text;
+            return;
+          }
+        } catch (err) {
+          // getText() 不可用，跳过
         }
       }
     } catch (err) {
@@ -35,91 +39,186 @@ struct Index {
     }
   }
 
+  private clearText(): void {
+    this.jdText = '';
+  }
+
   private startInterview(): void {
     if (!this.jdText.trim()) {
       return;
     }
-    router.pushUrl({
-      url: 'pages/Interview',
-      params: {
-        jdText: this.jdText
-      }
-    });
+    const jdParam: Record<string, Object> = { 'jdText': this.jdText };
+    const pathInfo: NavPathInfo = { name: 'Interview', param: jdParam };
+    this.navStack.pushPath(pathInfo);
   }
 
   private goToSetting(): void {
-    router.pushUrl({ url: 'pages/Setting' });
+    const settingPath: NavPathInfo = { name: 'Setting' };
+    this.navStack.pushPath(settingPath);
   }
 
   build() {
     Column() {
-      // 顶部标题区
+      // ── 品牌区 ─────────────────────────────────────
       Column() {
-        Text($r('app.string.index_title'))
-          .fontSize(28)
+        Text('AI')
+          .fontSize(32)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#0A59F7');
+          .fontColor($r('app.color.white'))
+          .width(56)
+          .height(56)
+          .textAlign(TextAlign.Center)
+          .backgroundColor($r('app.color.primary'))
+          .borderRadius(14)
+          .margin({ bottom: 16 });
+
+        Text($r('app.string.index_title'))
+          .fontSize(26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'));
+
         Text($r('app.string.index_subtitle'))
           .fontSize(14)
-          .fontColor('#666666')
-          .margin({ top: 8 });
+          .fontColor($r('app.color.text_secondary'))
+          .margin({ top: 6 });
       }
-      .margin({ top: 40, bottom: 24 });
+      .alignItems(HorizontalAlign.Center)
+      .margin({ top: 32, bottom: 28 });
 
-      // JD 输入区
-      TextArea({
-        text: this.jdText,
-        placeholder: $r('app.string.index_jd_placeholder')
-      })
-        .height(220)
-        .borderRadius(12)
-        .borderColor('#E0E0E0')
-        .borderWidth(1)
-        .padding(12)
-        .fontSize(15)
-        .onChange((value: string) => {
-          this.jdText = value;
-        });
+      // ── JD 输入卡片 ─────────────────────────────────
+      Column() {
+        TextArea({
+          text: this.jdText,
+          placeholder: $r('app.string.index_jd_placeholder')
+        })
+          .height(200)
+          .borderRadius(12)
+          .borderColor(this.isFocused ? $r('app.color.input_focus_border') : $r('app.color.border'))
+          .borderWidth(1.5)
+          .padding(14)
+          .fontSize(15)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor($r('app.color.input_background'))
+          .onChange((value: string) => {
+            this.jdText = value;
+          })
+          .onFocus((): void => {
+            this.isFocused = true;
+          })
+          .onBlur((): void => {
+            this.isFocused = false;
+          })
+          .accessibilityText('请输入职位描述文本')
 
-      // 功能按钮行
+        if (this.jdText.trim().length > 0) {
+          Row() {
+            Text('✕ 清空')
+              .fontSize(13)
+              .fontColor($r('app.color.text_tip'))
+              .onClick(() => this.clearText());
+          }
+          .accessibilityText('清空输入内容')
+          .width('100%')
+          .justifyContent(FlexAlign.End)
+          .margin({ top: 6 });
+        }
+      }
+      .width('100%');
+
+      // ── 功能按钮行 ─────────────────────────────────
       Row() {
-        Button($r('app.string.index_paste_button'))
-          .backgroundColor('#F0F0F0')
-          .fontColor('#333333')
-          .borderRadius(8)
-          .height(40)
-          .onClick(() => this.pasteFromClipboard());
+        Button() {
+          Row() {
+            Text('📋')
+              .fontSize(16)
+              .margin({ right: 4 });
+            Text($r('app.string.index_paste_button'))
+              .fontSize(15)
+              .fontColor($r('app.color.text_primary'));
+          }
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.Center)
+        }
+        .backgroundColor($r('app.color.step_inactive'))
+        .borderRadius(10)
+        .height(46)
+        .layoutWeight(1)
+        .margin({ right: 12 })
+        .onClick(() => this.pasteFromClipboard())
+        .accessibilityText('从剪贴板粘贴')
 
-        Button($r('app.string.index_start_button'))
-          .backgroundColor('#0A59F7')
-          .fontColor(Color.White)
-          .borderRadius(8)
-          .height(40)
-          .width(120)
-          .enabled(this.jdText.trim().length > 0)
-          .opacity(this.jdText.trim().length > 0 ? 1 : 0.5)
-          .onClick(() => this.startInterview());
+        Button() {
+          Row() {
+            Text('▶')
+              .fontSize(14)
+              .margin({ right: 4 });
+            Text($r('app.string.index_start_button'))
+              .fontSize(15)
+              .fontColor($r('app.color.white'));
+          }
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.Center)
+        }
+        .backgroundColor($r('app.color.primary'))
+        .borderRadius(10)
+        .height(46)
+        .layoutWeight(1)
+        .enabled(this.jdText.trim().length > 0)
+        .opacity(this.jdText.trim().length > 0 ? 1 : 0.45)
+        .onClick(() => this.startInterview())
+        .accessibilityText('开始面试');
       }
       .width('100%')
-      .justifyContent(FlexAlign.SpaceBetween)
       .margin({ top: 16 });
 
-      // API Key 状态 + 配置入口
+      // ── API Key 状态卡片 ──────────────────────────
       Row() {
-        Text(this.hasKey ? '✓ API Key 已配置' : '✗ 未配置 API Key')
-          .fontSize(13)
-          .fontColor(this.hasKey ? '#34C759' : '#FF9500');
-        Text('设置')
-          .fontSize(13)
-          .fontColor('#0A59F7')
-          .margin({ left: 8 })
-          .onClick(() => this.goToSetting());
+        Row() {
+          Text(this.hasKey ? '✓' : '✗')
+            .fontSize(16)
+            .fontColor(this.hasKey ? $r('app.color.text_success') : $r('app.color.text_warning'))
+            .margin({ right: 8 });
+          Column() {
+            Text(this.hasKey ? 'API Key 已配置' : '未配置 API Key')
+              .fontSize(14)
+              .fontColor($r('app.color.text_primary'));
+            if (!this.hasKey) {
+              Text('点击下方「设置」前往配置')
+                .fontSize(12)
+                .fontColor($r('app.color.text_tip'))
+                .margin({ top: 2 });
+            }
+          }
+          .alignItems(HorizontalAlign.Start);
+        }
+        .layoutWeight(1);
+
+        Text('设置 ›')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_link'))
+          .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+          .backgroundColor($r('app.color.primary_light'))
+          .borderRadius(6)
+          .onClick(() => this.goToSetting())
+          .accessibilityText('打开设置页面');
       }
-      .margin({ top: 24 });
+      .padding(16)
+      .backgroundColor($r('app.color.card_background'))
+      .borderRadius(12)
+      .width('100%')
+      .margin({ top: 28 })
+      .shadow({
+        radius: 8,
+        color: $r('app.color.shadow_card'),
+        offsetX: 0,
+        offsetY: 2
+      });
     }
-    .padding({ left: 20, right: 20 })
+    .padding({ left: 24, right: 24 })
     .height('100%')
     .width('100%')
+    .constraintSize({ maxWidth: 600 })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .backgroundColor($r('app.color.page_background'));
   }

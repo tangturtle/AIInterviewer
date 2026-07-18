@@ -1,4 +1,3 @@
-import router from '@ohos.router';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getApiKey, getEndpoint, getModel } from '../utils/PreferencesManager';
 import {
@@ -6,13 +5,16 @@ import {
   buildQuestionPrompt, parseQuestionResponse,
   buildFollowUpPrompt,
   buildReportPrompt, parseReportResponse,
+  parseFollowUpResponse,
   callLLM
 } from '../utils/prompt';
 import type { ParsedJD, InterviewQuestion, QAPair, InterviewReport, FollowUpItem } from '../utils/types';
 
-@Entry
 @Component
-struct Interview {
+export struct InterviewPage {
+  navStack: NavPathStack = new NavPathStack();
+  params: Record<string, Object> = {};
+
   @State pageState: string = 'loading_jd';
   @State jdText: string = '';
   @State parsedJD: ParsedJD | null = null;
@@ -28,30 +30,48 @@ struct Interview {
   private apiKey: string = '';
   private modelName: string = '';
 
+  private readonly roundLabels: string[] = ['技术基础', '项目深度', '综合评估'];
+  private readonly roundDescriptions: string[] = [
+    '技能关键词考察',
+    '项目经验深挖',
+    '综合素质评估'
+  ];
+
   aboutToAppear(): void {
-    const params = router.getParams() as Record<string, Object>;
-    if (!params || !params.jdText) {
+    const jdTextParam = this.params?.jdText;
+    if (!jdTextParam) {
       this.errorMessage = '缺少必要参数';
       this.pageState = 'error';
       return;
     }
-    this.jdText = params.jdText as string;
+    this.jdText = jdTextParam as string;
     this.startInterviewFlow();
   }
 
-  // ── 计算属性辅助方法 ─────────────────────────────────
-
-  private getQuestionTypeColor(): string {
+  private getQuestionTypeBgColor(): Resource {
     if (this.currentQuestion === null) {
-      return '#007DFF';
+      return $r('app.color.badge_technical_bg');
     }
     const qType = this.currentQuestion.type;
     if (qType === 'technical') {
-      return '#007DFF';
+      return $r('app.color.badge_technical_bg');
     } else if (qType === 'behavioral') {
-      return '#FF9500';
+      return $r('app.color.badge_behavioral_bg');
     }
-    return '#34C759';
+    return $r('app.color.badge_project_bg');
+  }
+
+  private getQuestionTypeTextColor(): Resource {
+    if (this.currentQuestion === null) {
+      return $r('app.color.badge_technical_text');
+    }
+    const qType = this.currentQuestion.type;
+    if (qType === 'technical') {
+      return $r('app.color.badge_technical_text');
+    } else if (qType === 'behavioral') {
+      return $r('app.color.badge_behavioral_text');
+    }
+    return $r('app.color.badge_project_text');
   }
 
   private getQuestionTypeLabel(): string {
@@ -80,16 +100,6 @@ struct Interview {
     }
     return this.currentQuestion.focusArea;
   }
-
-  private isStepActive(step: number): boolean {
-    return step <= this.currentRound;
-  }
-
-  private isStepCurrent(step: number): boolean {
-    return step === this.currentRound;
-  }
-
-  // ── 业务流程 ────────────────────────────────────────
 
   private async startInterviewFlow(): Promise<void> {
     this.apiKey = (await getApiKey(getContext(this))) || '';
@@ -155,12 +165,16 @@ struct Interview {
       if (this.currentQuestion === null) {
         throw new Error('无当前题目');
       }
-      const followUp = await callLLM(this.apiKey, '你是一个专业的面试官。',
+      const rawFollowUp = await callLLM(this.apiKey, '你是一个专业的面试官。',
         buildFollowUpPrompt(this.currentQuestion, this.currentAnswer, this.qaHistory), undefined, this.modelName);
-      if (!followUp || followUp.length === 0) {
+      if (!rawFollowUp || rawFollowUp.length === 0) {
         throw new Error('追问生成失败');
       }
-      this.followUpQuestion = followUp;
+      const parsed = parseFollowUpResponse(rawFollowUp);
+      if (parsed === null) {
+        throw new Error('追问解析失败');
+      }
+      this.followUpQuestion = parsed;
       this.followUpAnswer = '';
       this.pageState = 'awaiting_followup_answer';
     });
@@ -213,12 +227,9 @@ struct Interview {
       if (report === null) {
         throw new Error('报告解析失败');
       }
-      router.replaceUrl({
-        url: 'pages/Report',
-        params: {
-          reportJson: JSON.stringify(report)
-        }
-      });
+      const reportParam: Record<string, Object> = { 'reportJson': JSON.stringify(report) };
+      const reportPath: NavPathInfo = { name: 'Report', param: reportParam };
+      this.navStack.replacePath(reportPath);
     });
   }
 
@@ -240,7 +251,6 @@ struct Interview {
           this.pageState = 'error';
           return;
         }
-        // 自动重试
         await new Promise<string>((resolve) => {
           setTimeout((): void => {
             resolve('');
@@ -251,28 +261,46 @@ struct Interview {
   }
 
   private goBack(): void {
-    router.back();
+    this.navStack.pop();
   }
 
-  // ── UI 构建 ──────────────────────────────────────────
+  private retry(): void {
+    this.retryCount = 0;
+    this.pageState = 'loading_jd';
+    this.parseJD();
+  }
 
   build() {
-    Column() {
-      if (this.pageState === 'loading_jd' || this.pageState === 'loading_question' ||
-          this.pageState === 'loading_followup' || this.pageState === 'loading_report') {
-        this.LoadingView();
-      } else if (this.pageState === 'awaiting_answer' && this.currentQuestion !== null) {
-        this.QuestionView();
-      } else if (this.pageState === 'awaiting_followup_answer') {
-        this.FollowUpView();
-      } else if (this.pageState === 'error') {
-        this.ErrorView();
+    NavDestination() {
+      Column() {
+        if (this.pageState === 'loading_jd' || this.pageState === 'loading_question' ||
+            this.pageState === 'loading_followup' || this.pageState === 'loading_report') {
+          this.LoadingView();
+        } else if (this.pageState === 'awaiting_answer' && this.currentQuestion !== null) {
+          this.QuestionView();
+        } else if (this.pageState === 'awaiting_followup_answer') {
+          this.FollowUpView();
+        } else if (this.pageState === 'error') {
+          this.ErrorView();
+        }
       }
+      .height('100%')
+      .width('100%')
+      .constraintSize({ maxWidth: 600 })
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .backgroundColor($r('app.color.page_background'))
     }
-    .height('100%')
-    .width('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .backgroundColor($r('app.color.page_background'))
+    .hideTitleBar(true)
+    .onReady((context: NavDestinationContext) => {
+      if (context?.pathInfo?.param) {
+        this.params = context.pathInfo.param as Record<string, Object>;
+        // 如果 aboutToAppear 已经执行过 params 为空，重新触发初始化
+        if (!this.params?.jdText && !this.jdText) {
+          this.jdText = this.params.jdText as string;
+          this.startInterviewFlow();
+        }
+      }
+    });
   }
 
   @Builder
@@ -281,11 +309,15 @@ struct Interview {
       LoadingProgress()
         .width(48)
         .height(48)
-        .color('#0A59F7');
+        .color($r('app.color.loading_progress'));
       Text(this.getLoadingText())
         .fontSize(15)
-        .fontColor('#666666')
-        .margin({ top: 16 });
+        .fontColor($r('app.color.text_secondary'))
+        .margin({ top: 20 });
+      Text('请耐心等待，AI 正在思考...')
+        .fontSize(12)
+        .fontColor($r('app.color.text_tip'))
+        .margin({ top: 8 });
     }
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
@@ -310,74 +342,80 @@ struct Interview {
   QuestionView(): void {
     Scroll() {
       Column() {
-        // 进度指示
-        Text('第 ' + this.currentRound + '/3 题')
-          .fontSize(14)
-          .fontColor('#999999')
-          .width('100%')
-          .margin({ bottom: 8 });
+        this.RoundProgressCard();
 
-        this.ProgressBarComponent();
-
-        // 题目卡片
         Column() {
-          Row() {
-            Text(this.getQuestionTypeLabel())
-              .fontSize(12)
-              .fontColor(Color.White)
-              .backgroundColor(this.getQuestionTypeColor())
-              .borderRadius(4)
-              .padding({ left: 8, right: 8, top: 2, bottom: 2 });
-          }
-          .width('100%')
-          .margin({ bottom: 12 });
+          Text(this.getQuestionTypeLabel())
+            .fontSize(12)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.getQuestionTypeTextColor())
+            .backgroundColor(this.getQuestionTypeBgColor())
+            .borderRadius(4)
+            .padding({ left: 10, right: 10, top: 3, bottom: 3 })
+            .margin({ bottom: 12 });
 
           Text(this.getQuestionText())
             .fontSize(17)
-            .fontColor('#333333')
-            .lineHeight(26)
+            .fontColor($r('app.color.text_primary'))
+            .lineHeight(27)
             .width('100%');
 
           if (this.getQuestionFocusArea().length > 0) {
-            Text('考察维度：' + this.getQuestionFocusArea())
-              .fontSize(13)
-              .fontColor('#999999')
-              .margin({ top: 12 })
-              .width('100%');
+            Row() {
+              Text('●')
+                .fontSize(8)
+                .fontColor($r('app.color.text_tip'))
+                .margin({ right: 6 });
+              Text('考察：' + this.getQuestionFocusArea())
+                .fontSize(13)
+                .fontColor($r('app.color.text_tip'));
+            }
+            .margin({ top: 14 })
+            .width('100%');
           }
         }
-        .padding(16)
-        .backgroundColor('#F8F9FA')
-        .borderRadius(12)
-        .width('100%');
+        .padding(20)
+        .backgroundColor($r('app.color.card_background'))
+        .borderRadius(14)
+        .width('100%')
+        .shadow({ radius: 6, color: '#0D000000', offsetX: 0, offsetY: 2 });
 
-        // 回答输入
         TextArea({
           text: this.currentAnswer,
           placeholder: '请输入你的回答...'
         })
           .height(160)
           .borderRadius(12)
-          .borderColor('#E0E0E0')
+          .borderColor($r('app.color.border'))
           .borderWidth(1)
-          .padding(12)
+          .padding(14)
           .fontSize(15)
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor($r('app.color.input_background'))
           .margin({ top: 16 })
           .onChange((value: string) => {
             this.currentAnswer = value;
-          });
+          })
+          .accessibilityText('输入你的回答')
 
-        // 提交按钮
-        Button('提交回答')
-          .backgroundColor('#0A59F7')
-          .fontColor(Color.White)
-          .borderRadius(8)
-          .height(44)
-          .width('100%')
-          .margin({ top: 12 })
-          .enabled(this.currentAnswer.trim().length > 0)
-          .opacity(this.currentAnswer.trim().length > 0 ? 1 : 0.5)
-          .onClick(() => this.submitAnswer(this.currentAnswer));
+        Button() {
+          Row() {
+            Text('✓').fontSize(14).margin({ right: 6 });
+            Text('提交回答').fontSize(15);
+          }
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.Center)
+        }
+        .backgroundColor($r('app.color.primary'))
+        .fontColor($r('app.color.white'))
+        .borderRadius(10)
+        .height(48)
+        .width('100%')
+        .margin({ top: 14 })
+        .enabled(this.currentAnswer.trim().length > 0)
+        .opacity(this.currentAnswer.trim().length > 0 ? 1 : 0.45)
+        .onClick(() => this.submitAnswer(this.currentAnswer))
+        .accessibilityText('提交回答');
       }
       .padding(20)
       .width('100%');
@@ -385,51 +423,96 @@ struct Interview {
   }
 
   @Builder
-  ProgressBarComponent(): void {
+  RoundProgressCard(): void {
     Row() {
       ForEach([1, 2, 3], (i: number) => {
-        Row() {
-          if (i > 1) {
-            Divider()
-              .height(2)
-              .backgroundColor(this.isStepActive(i) ? '#0A59F7' : '#E0E0E0')
-              .width(40);
-          }
+        if (i > 1) {
+          Divider()
+            .height(2)
+            .backgroundColor(i - 1 <= this.currentRound ? $r('app.color.step_active') : $r('app.color.divider'))
+            .width(28);
+        }
+        Column() {
           Text('' + i)
             .fontSize(12)
-            .fontColor(this.isStepActive(i) ? Color.White : '#999999')
-            .backgroundColor(this.isStepActive(i) ? '#0A59F7' : '#F0F0F0')
-            .width(24)
-            .height(24)
-            .borderRadius(12)
-            .textAlign(TextAlign.Center);
+            .fontWeight(FontWeight.Bold)
+            .fontColor(i < this.currentRound ? $r('app.color.white') :
+              i === this.currentRound ? $r('app.color.white') : $r('app.color.step_inactive_text'))
+            .width(26)
+            .height(26)
+            .textAlign(TextAlign.Center)
+            .backgroundColor(i < this.currentRound ? $r('app.color.step_completed') :
+              i === this.currentRound ? $r('app.color.step_active') : $r('app.color.step_inactive'))
+            .borderRadius(13);
+          Text(this.roundLabels[i - 1])
+            .fontSize(11)
+            .fontColor(i <= this.currentRound ? $r('app.color.text_primary') : $r('app.color.text_tip'))
+            .margin({ top: 4 });
+          Text(this.roundDescriptions[i - 1])
+            .fontSize(10)
+            .fontColor($r('app.color.text_tip'))
+            .margin({ top: 1 });
         }
+        .alignItems(HorizontalAlign.Center);
       })
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
-    .margin({ bottom: 20 });
+    .padding(16)
+    .backgroundColor($r('app.color.card_background_light'))
+    .borderRadius(12)
+    .margin({ bottom: 16 });
   }
 
   @Builder
   FollowUpView(): void {
     Scroll() {
       Column() {
-        Text('追问')
-          .fontSize(14)
-          .fontColor('#FF9500')
-          .fontWeight(FontWeight.Bold)
-          .width('100%')
-          .margin({ bottom: 12 });
+        // ── 轮次语境指示条 ──────────────────────────
+        Row() {
+          Text('第 ' + this.currentRound + '/3 轮')
+            .fontSize(12).fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.white'))
+            .backgroundColor($r('app.color.primary'))
+            .borderRadius(4)
+            .padding({ left: 8, right: 8, top: 2, bottom: 2 });
 
-        Text(this.followUpQuestion)
-          .fontSize(16)
-          .fontColor('#333333')
-          .lineHeight(25)
+          Text(this.roundLabels[this.currentRound - 1])
+            .fontSize(12).fontColor($r('app.color.text_tip'))
+            .margin({ left: 8 });
+        }
+        .width('100%')
+        .margin({ bottom: 12 });
+
+        // ── 追问卡片（使用 borderLeft 替代内嵌 Column 色条） ──
+        Column() {
+          Text('追问')
+            .fontSize(15).fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.followup_accent'))
+            .width('100%')
+            .margin({ bottom: 10 });
+
+          Text(this.followUpQuestion)
+            .fontSize(16)
+            .fontColor($r('app.color.text_primary'))
+            .lineHeight(26)
+            .width('100%');
+        }
+        .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+        .width('100%')
+        .backgroundColor($r('app.color.followup_bg'))
+        .borderRadius(12)
+        .borderColor($r('app.color.followup_border'))
+        .borderWidth(1)
+        .borderStyle(BorderStyle.Solid)
+        .margin({ bottom: 20 });
+
+        // ── 你的回答区 ──────────────────────────────
+        Text('你的回答')
+          .fontSize(14).fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
           .width('100%')
-          .padding(16)
-          .backgroundColor('#FFF8E1')
-          .borderRadius(12);
+          .margin({ bottom: 8 });
 
         TextArea({
           text: this.followUpAnswer,
@@ -437,25 +520,40 @@ struct Interview {
         })
           .height(140)
           .borderRadius(12)
-          .borderColor('#E0E0E0')
+          .borderColor($r('app.color.border'))
           .borderWidth(1)
-          .padding(12)
+          .padding(14)
           .fontSize(15)
-          .margin({ top: 16 })
+          .fontColor($r('app.color.text_primary'))
+          .backgroundColor($r('app.color.input_background'))
+          .margin({ bottom: 12 })
           .onChange((value: string) => {
             this.followUpAnswer = value;
-          });
+          })
+          .accessibilityText('输入追问的回答')
 
-        Button('提交回答')
-          .backgroundColor('#0A59F7')
-          .fontColor(Color.White)
-          .borderRadius(8)
-          .height(44)
-          .width('100%')
-          .margin({ top: 12 })
-          .enabled(this.followUpAnswer.trim().length > 0)
-          .opacity(this.followUpAnswer.trim().length > 0 ? 1 : 0.5)
-          .onClick(() => this.submitFollowUpAnswer(this.followUpAnswer));
+        Button() {
+          Row() {
+            Text('✓').fontSize(14).margin({ right: 6 });
+            Text('提交回答').fontSize(15);
+          }
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.Center)
+        }
+        .backgroundColor($r('app.color.primary'))
+        .fontColor($r('app.color.white'))
+        .borderRadius(10)
+        .height(48)
+        .width('100%')
+        .enabled(this.followUpAnswer.trim().length > 0)
+        .opacity(this.followUpAnswer.trim().length > 0 ? 1 : 0.45)
+        .onClick(() => this.submitFollowUpAnswer(this.followUpAnswer))
+        .accessibilityText('提交追问回答');
+
+        Text('按 Enter 快速提交 · Ctrl+Enter 换行')
+          .fontSize(11).fontColor($r('app.color.text_tip'))
+          .width('100%').textAlign(TextAlign.Center)
+          .margin({ top: 8 });
       }
       .padding(20)
       .width('100%');
@@ -465,28 +563,52 @@ struct Interview {
   @Builder
   ErrorView(): void {
     Column() {
-      Text('❌')
-        .fontSize(48)
-        .margin({ bottom: 16 });
+      Text('!')
+        .fontSize(40)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.text_danger'))
+        .width(72)
+        .height(72)
+        .textAlign(TextAlign.Center)
+        .backgroundColor($r('app.color.error_bg'))
+        .borderRadius(36)
+        .margin({ bottom: 20 });
 
       Text(this.errorMessage)
         .fontSize(16)
-        .fontColor('#FF3B30')
+        .fontColor($r('app.color.text_danger'))
         .textAlign(TextAlign.Center)
-        .margin({ bottom: 24 });
+        .margin({ bottom: 28 });
 
-      Button('返回首页')
-        .backgroundColor('#0A59F7')
-        .fontColor(Color.White)
-        .borderRadius(8)
-        .height(44)
-        .width(160)
-        .onClick(() => this.goBack());
+      Row() {
+        Button('🔄 重试')
+          .backgroundColor($r('app.color.card_background'))
+          .fontColor($r('app.color.text_primary'))
+          .borderRadius(10)
+          .height(48)
+          .layoutWeight(1)
+          .margin({ right: 8 })
+          .borderColor($r('app.color.border'))
+          .borderWidth(1)
+          .onClick(() => this.retry())
+          .accessibilityText('重试');
+
+        Button('返回首页')
+          .backgroundColor($r('app.color.primary'))
+          .fontColor($r('app.color.white'))
+          .borderRadius(10)
+          .height(48)
+          .layoutWeight(1)
+          .margin({ left: 8 })
+          .onClick(() => this.goBack())
+          .accessibilityText('返回首页');
+      }
+      .width('100%');
     }
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
     .height('100%')
     .width('100%')
-    .padding(20);
+    .padding(24);
   }
 }

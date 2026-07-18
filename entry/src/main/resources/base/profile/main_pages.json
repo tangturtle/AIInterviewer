@@ -1,8 +1,5 @@
 {
   "src": [
-    "pages/Index",
-    "pages/Interview",
-    "pages/Report",
-    "pages/Setting"
+    "pages/App"
   ]
 }

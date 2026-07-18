@@ -295,6 +295,18 @@ export function parseQuestionResponse(response: string): InterviewQuestion | nul
 }
 
 /**
+ * 解析 LLM 返回的追问文本
+ *
+ * 追问 prompt 要求 LLM 返回纯文本（非 JSON），但 API 仍会包裹在
+ * JSON 信封中。本函数从中提取 choices[0].message.content 字段。
+ * @param response - LLM API 原始响应字符串
+ * @returns 追问文本，解析失败返回 null
+ */
+export function parseFollowUpResponse(response: string): string | null {
+  return extractContent(response);
+}
+
+/**
  * 解析 LLM 返回的评分报告
  * @param response - LLM API 原始响应字符串
  * @returns 解析后的评分报告，解析失败返回 null
