@@ -1,80 +1,60 @@
 {
   "color": [
-    {
-      "name": "start_window_background",
-      "value": "#1A1A2E"
-    },
-    {
-      "name": "page_background",
-      "value": "#1A1A2E"
-    },
-    {
-      "name": "card_background",
-      "value": "#2D2D44"
-    },
-    {
-      "name": "card_background_light",
-      "value": "#25253B"
-    },
-    {
-      "name": "text_primary",
-      "value": "#E8E8E8"
-    },
-    {
-      "name": "text_secondary",
-      "value": "#AAAAAA"
-    },
-    {
-      "name": "text_tip",
-      "value": "#888888"
-    },
-    {
-      "name": "text_link",
-      "value": "#4A8BF7"
-    },
-    {
-      "name": "text_success",
-      "value": "#34C759"
-    },
-    {
-      "name": "text_warning",
-      "value": "#FF9500"
-    },
-    {
-      "name": "text_danger",
-      "value": "#FF453A"
-    },
-    {
-      "name": "primary",
-      "value": "#4A8BF7"
-    },
-    {
-      "name": "white",
-      "value": "#1A1A2E"
-    },
-    {
-      "name": "border",
-      "value": "#555555"
-    },
-    {
-      "name": "divider",
-      "value": "#444444"
-    },
-    {
-      "name": "step_inactive",
-      "value": "#3D3D55"
-    },
-    {
-      "name": "step_inactive_text",
-      "value": "#888888"
-    },
-    {
-      "name": "warning_bg",
-      "value": "#3D3520"
-    },
-    {
-      "name": "input_background",
-      "value": "#2D2D44"
-    }
+    {"name": "start_window_background", "value": "#1A1A2E"},
+    {"name": "page_background", "value": "#1A1A2E"},
+    {"name": "card_background", "value": "#2A2A3E"},
+    {"name": "card_background_light", "value": "#232338"},
+    {"name": "card_elevated", "value": "#2A2A3E"},
+
+    {"name": "primary", "value": "#4A8BFF"},
+    {"name": "primary_light", "value": "#2A2A4E"},
+    {"name": "primary_dark", "value": "#6AA5FF"},
+    {"name": "brand_secondary", "value": "#8A9BB8"},
+
+    {"name": "text_primary", "value": "#E8E8F0"},
+    {"name": "text_secondary", "value": "#A0A0B8"},
+    {"name": "text_tip", "value": "#707088"},
+    {"name": "text_link", "value": "#4A8BFF"},
+    {"name": "text_on_primary", "value": "#FFFFFF"},
+    {"name": "text_success", "value": "#4CD964"},
+    {"name": "text_warning", "value": "#FFB340"},
+    {"name": "text_danger", "value": "#FF6B6B"},
+    {"name": "white", "value": "#FFFFFF"},
+
+    {"name": "border", "value": "#3A3A50"},
+    {"name": "input_focus_border", "value": "#4A8BFF"},
+    {"name": "divider", "value": "#3A3A50"},
+
+    {"name": "badge_technical_bg", "value": "#2A2A5E"},
+    {"name": "badge_technical_text", "value": "#6AA5FF"},
+    {"name": "badge_behavioral_bg", "value": "#3A3020"},
+    {"name": "badge_behavioral_text", "value": "#FFB340"},
+    {"name": "badge_project_bg", "value": "#1A3A2A"},
+    {"name": "badge_project_text", "value": "#4CD964"},
+
+    {"name": "followup_accent", "value": "#FFB340"},
+    {"name": "followup_bg", "value": "#3A3020"},
+    {"name": "followup_border", "value": "#5A4030"},
+
+    {"name": "score_excellent", "value": "#4CD964"},
+    {"name": "score_good", "value": "#4A8BFF"},
+    {"name": "score_average", "value": "#FFB340"},
+    {"name": "score_poor", "value": "#FF6B6B"},
+
+    {"name": "suggestions_bg", "value": "#3A3020"},
+    {"name": "warning_bg", "value": "#3A3020"},
+
+    {"name": "step_active", "value": "#4A8BFF"},
+    {"name": "step_completed", "value": "#4CD964"},
+    {"name": "step_inactive", "value": "#2A2A40"},
+    {"name": "step_inactive_text", "value": "#707088"},
+
+    {"name": "input_background", "value": "#2A2A3E"},
+    {"name": "loading_progress", "value": "#4A8BFF"},
+
+    {"name": "error_bg", "value": "#3A2020"},
+    {"name": "error_border", "value": "#5A3030"},
+    {"name": "success_bg", "value": "#1A3A2A"},
+    {"name": "shadow_card", "value": "#3A3A5A"}
   ]
 }

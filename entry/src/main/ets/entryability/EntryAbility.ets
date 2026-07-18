@@ -72,7 +72,7 @@ export default class EntryAbility extends UIAbility {
   private determineStartPage(): string {
     // 同步检查是否有 Key（通过同步方式读取缓存）
     // 实际异步检查在 Index.ets 的 aboutToAppear 中处理
-    return 'pages/Index';
+    return 'pages/App';
   }
 
   onWindowStageDestroy(): void {
