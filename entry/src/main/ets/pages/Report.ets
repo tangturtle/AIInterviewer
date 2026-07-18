@@ -123,7 +123,8 @@ struct Report {
     }
     .height('100%')
     .width('100%')
-    .backgroundColor('#F5F5F5');
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor($r('app.color.page_background'));
   }
 
   @Builder
@@ -176,7 +177,7 @@ struct Report {
         .margin({ top: 4 });
     }
     .padding(20)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('app.color.card_background'))
     .borderRadius(16)
     .width('100%')
     .alignItems(HorizontalAlign.Center)
@@ -218,7 +219,7 @@ struct Report {
       this.SuggestionsComponent(key);
     }
     .padding(16)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('app.color.card_background'))
     .borderRadius(12)
     .width('100%')
     .margin({ bottom: 12 });
@@ -251,7 +252,7 @@ struct Report {
       }
       .width('100%')
       .padding(12)
-      .backgroundColor('#FFF8E1')
+      .backgroundColor($r('app.color.warning_bg'))
       .borderRadius(8);
     }
   }
@@ -271,7 +272,7 @@ struct Report {
         .lineHeight(22);
     }
     .padding(16)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('app.color.card_background'))
     .borderRadius(12)
     .width('100%')
     .margin({ bottom: 16 });

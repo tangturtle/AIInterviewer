@@ -2,7 +2,79 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#000000"
+      "value": "#1A1A2E"
+    },
+    {
+      "name": "page_background",
+      "value": "#1A1A2E"
+    },
+    {
+      "name": "card_background",
+      "value": "#2D2D44"
+    },
+    {
+      "name": "card_background_light",
+      "value": "#25253B"
+    },
+    {
+      "name": "text_primary",
+      "value": "#E8E8E8"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#AAAAAA"
+    },
+    {
+      "name": "text_tip",
+      "value": "#888888"
+    },
+    {
+      "name": "text_link",
+      "value": "#4A8BF7"
+    },
+    {
+      "name": "text_success",
+      "value": "#34C759"
+    },
+    {
+      "name": "text_warning",
+      "value": "#FF9500"
+    },
+    {
+      "name": "text_danger",
+      "value": "#FF453A"
+    },
+    {
+      "name": "primary",
+      "value": "#4A8BF7"
+    },
+    {
+      "name": "white",
+      "value": "#1A1A2E"
+    },
+    {
+      "name": "border",
+      "value": "#555555"
+    },
+    {
+      "name": "divider",
+      "value": "#444444"
+    },
+    {
+      "name": "step_inactive",
+      "value": "#3D3D55"
+    },
+    {
+      "name": "step_inactive_text",
+      "value": "#888888"
+    },
+    {
+      "name": "warning_bg",
+      "value": "#3D3520"
+    },
+    {
+      "name": "input_background",
+      "value": "#2D2D44"
     }
   ]
 }

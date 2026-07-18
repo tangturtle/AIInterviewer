@@ -164,7 +164,7 @@ struct Setting {
           });
       }
       .padding({ left: 12, right: 12 })
-      .backgroundColor('#F8F9FA')
+      .backgroundColor($r('app.color.card_background_light'))
       .borderRadius(8)
       .width('100%')
       .margin({ bottom: 20 });
@@ -232,7 +232,7 @@ struct Setting {
             });
         }
         .padding({ left: 12, right: 12 })
-        .backgroundColor('#F8F9FA')
+        .backgroundColor($r('app.color.card_background_light'))
         .borderRadius(8)
         .width('100%')
         .margin({ bottom: 20 });
@@ -241,8 +241,8 @@ struct Setting {
       // 按钮区域
       Column() {
         Button('检测连通性')
-          .backgroundColor('#F0F0F0')
-          .fontColor('#333333')
+          .backgroundColor($r('app.color.step_inactive'))
+          .fontColor($r('app.color.text_primary'))
           .borderRadius(8)
           .height(44)
           .width('100%')
@@ -261,7 +261,7 @@ struct Setting {
             .onClick(() => this.handleCancel());
 
           Button('确认')
-            .backgroundColor('#0A59F7')
+            .backgroundColor($r('app.color.primary'))
             .fontColor(Color.White)
             .borderRadius(8)
             .height(44)
@@ -280,6 +280,7 @@ struct Setting {
     .padding({ left: 24, right: 24 })
     .height('100%')
     .width('100%')
-    .backgroundColor(Color.White);
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor($r('app.color.page_background'));
   }
 }

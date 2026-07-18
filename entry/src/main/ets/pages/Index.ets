@@ -120,6 +120,7 @@ struct Index {
     .padding({ left: 20, right: 20 })
     .height('100%')
     .width('100%')
-    .backgroundColor(Color.White);
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor($r('app.color.page_background'));
   }
 }
