@@ -99,7 +99,7 @@ export struct ReportPage {
   @Builder
   EmptyStateView(): void {
     Column() {
-      Text('�').fontSize(48).margin({ bottom: 16 });
+      Text('📊').fontSize(48).margin({ bottom: 16 });
       Text('暂无报告数据').fontSize(16).fontColor($r('app.color.text_tip'));
       Button('返回首页')
         .backgroundColor($r('app.color.primary')).fontColor($r('app.color.white'))

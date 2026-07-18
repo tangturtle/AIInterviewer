@@ -1,5 +1,5 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { getApiKey, getEndpoint, getModel } from '../utils/PreferencesManager';
+import { getApiKey, getModel } from '../utils/PreferencesManager';
 import {
   buildJDPrompt, parseJDResponse,
   buildQuestionPrompt, parseQuestionResponse,
