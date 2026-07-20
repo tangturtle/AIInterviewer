@@ -83,9 +83,18 @@ export function streamPost(
 ): http.HttpRequest {
   const httpRequest = http.createHttp();
   const splitter = new SSESplitter();
-  let hasError = false;
+  let hasCompleted = false;
+  let cancelled = false;
+
+  // 在 request 完成后挂载取消标记
+  const origDestroy = httpRequest.destroy.bind(httpRequest);
+  httpRequest.destroy = (): void => {
+    cancelled = true;
+    origDestroy();
+  };
 
   httpRequest.on('dataReceive', (data: ArrayBuffer): void => {
+    if (cancelled) { return; }
     const events = splitter.feed(data);
     for (const evt of events) {
       if (evt.content) { callbacks.onContent(evt.content); }
@@ -95,7 +104,8 @@ export function streamPost(
   });
 
   httpRequest.on('dataEnd', (): void => {
-    hasError = true;
+    if (cancelled) { return; }
+    hasCompleted = true;
     callbacks.onDone();
   });
 
@@ -112,8 +122,8 @@ export function streamPost(
     connectTimeout: 15000,
     readTimeout: 60000
   }).catch((err: Error): void => {
-    if (!hasError) {
-      hasError = true;
+    if (!cancelled && !hasCompleted) {
+      hasCompleted = true;
       callbacks.onError(err);
     }
   });
