@@ -1,5 +1,6 @@
 import util from '@ohos.util';
 import { http } from '@kit.NetworkKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 // ── SSE (Server-Sent Events) 流式输出 ───────────────────────
 
@@ -84,17 +85,9 @@ export function streamPost(
   const httpRequest = http.createHttp();
   const splitter = new SSESplitter();
   let hasCompleted = false;
-  let cancelled = false;
-
-  // 在 request 完成后挂载取消标记
-  const origDestroy = httpRequest.destroy.bind(httpRequest);
-  httpRequest.destroy = (): void => {
-    cancelled = true;
-    origDestroy();
-  };
 
   httpRequest.on('dataReceive', (data: ArrayBuffer): void => {
-    if (cancelled) { return; }
+    if (hasCompleted) { return; }
     const events = splitter.feed(data);
     for (const evt of events) {
       if (evt.content) { callbacks.onContent(evt.content); }
@@ -104,7 +97,7 @@ export function streamPost(
   });
 
   httpRequest.on('dataEnd', (): void => {
-    if (cancelled) { return; }
+    if (hasCompleted) { return; }
     hasCompleted = true;
     callbacks.onDone();
   });
@@ -122,8 +115,10 @@ export function streamPost(
     connectTimeout: 15000,
     readTimeout: 60000
   }).catch((err: Error): void => {
-    if (!cancelled && !hasCompleted) {
+    if (!hasCompleted) {
       hasCompleted = true;
+      const errMsg = (err as Error).message || JSON.stringify(err);
+      hilog.error(0x0000, 'AIInterviewer', 'streamPost 请求失败: %{public}s', errMsg);
       callbacks.onError(err);
     }
   });
