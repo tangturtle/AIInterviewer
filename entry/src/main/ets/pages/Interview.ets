@@ -175,6 +175,9 @@ export struct InterviewPage {
       this.currentStreamRequest = streamHandle.request;
       const fullContent = await streamHandle.result;
       this.stopCursorBlink();
+      const D2 = 0x0000;
+      hilog.info(D2, 'AIInterviewer', 'parseJD: 收到 %d 字节', fullContent.length);
+      hilog.info(D2, 'AIInterviewer', 'parseJD: 前100=%{public}s', fullContent.substring(0, 100));
       const wrapped = reconstructResponse(fullContent);
       const jd = parseJDResponse(wrapped);
       if (jd === null) {
