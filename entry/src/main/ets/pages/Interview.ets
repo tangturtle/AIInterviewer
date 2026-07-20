@@ -162,7 +162,7 @@ export struct InterviewPage {
     const D = 0x0000;
     hilog.info(D, 'AIInterviewer', 'parseJD: 发送流式LLM请求');
     await this.streamCall(async () => {
-      const { request, result } = callLLMStream(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText), {
+      const streamHandle = callLLMStream(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText), {
         onContent: (text: string): void => {
           this.pageState = 'streaming';
           this.streamingText = text;
@@ -172,8 +172,8 @@ export struct InterviewPage {
           this.streamingReasoning = text;
         }
       }, undefined, this.modelName);
-      this.currentStreamRequest = request;
-      const fullContent = await result;
+      this.currentStreamRequest = streamHandle.request;
+      const fullContent = await streamHandle.result;
       this.stopCursorBlink();
       const wrapped = reconstructResponse(fullContent);
       const jd = parseJDResponse(wrapped);
@@ -191,7 +191,7 @@ export struct InterviewPage {
     this.clearStreamState();
     if (this.parsedJD === null) { return; }
     await this.streamCall(async () => {
-      const { request, result } = callLLMStream(this.apiKey, '你是一个专业的面试官。',
+      const streamHandle2 = callLLMStream(this.apiKey, '你是一个专业的面试官。',
         buildQuestionPrompt(this.parsedJD!, this.currentRound), {
         onContent: (text: string): void => {
           this.pageState = 'streaming';
@@ -202,8 +202,8 @@ export struct InterviewPage {
           this.streamingReasoning = text;
         }
       }, undefined, this.modelName);
-      this.currentStreamRequest = request;
-      const fullContent = await result;
+      this.currentStreamRequest = streamHandle2.request;
+      const fullContent = await streamHandle2.result;
       this.stopCursorBlink();
       const wrapped = reconstructResponse(fullContent);
       const q = parseQuestionResponse(wrapped);
@@ -230,7 +230,7 @@ export struct InterviewPage {
     this.clearStreamState();
     if (this.currentQuestion === null) { return; }
     await this.streamCall(async () => {
-      const { request, result } = callLLMStream(this.apiKey, '你是一个专业的面试官。',
+      const streamHandle3 = callLLMStream(this.apiKey, '你是一个专业的面试官。',
         buildFollowUpPrompt(this.currentQuestion!, this.currentAnswer, this.qaHistory), {
         onContent: (text: string): void => {
           this.pageState = 'streaming';
@@ -241,8 +241,8 @@ export struct InterviewPage {
           this.streamingReasoning = text;
         }
       }, undefined, this.modelName);
-      this.currentStreamRequest = request;
-      const fullContent = await result;
+      this.currentStreamRequest = streamHandle3.request;
+      const fullContent = await streamHandle3.result;
       this.stopCursorBlink();
       const wrapped = reconstructResponse(fullContent);
       const parsed = parseFollowUpResponse(wrapped);
@@ -295,7 +295,7 @@ export struct InterviewPage {
     this.clearStreamState();
     if (this.parsedJD === null) { return; }
     await this.streamCall(async () => {
-      const { request, result } = callLLMStream(this.apiKey, '你是一个专业的面试评估专家。',
+      const streamHandle4 = callLLMStream(this.apiKey, '你是一个专业的面试评估专家。',
         buildReportPrompt(this.qaHistory, this.parsedJD!), {
         onContent: (text: string): void => {
           this.pageState = 'streaming';
@@ -306,8 +306,8 @@ export struct InterviewPage {
           this.streamingReasoning = text;
         }
       }, undefined, this.modelName);
-      this.currentStreamRequest = request;
-      const fullContent = await result;
+      this.currentStreamRequest = streamHandle4.request;
+      const fullContent = await streamHandle4.result;
       this.stopCursorBlink();
       const wrapped = reconstructResponse(fullContent);
       const report = parseReportResponse(wrapped);

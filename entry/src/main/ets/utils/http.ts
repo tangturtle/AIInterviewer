@@ -1,4 +1,4 @@
-import { util } from '@kit.ArkUI';
+import util from '@ohos.util';
 import { http } from '@kit.NetworkKit';
 
 // ── SSE (Server-Sent Events) 流式输出 ───────────────────────
@@ -30,7 +30,7 @@ export class SSESplitter {
    */
   feed(data: ArrayBuffer): Array<{ content: string; reasoningContent?: string; finishReason?: string }> {
     const decoder = util.TextDecoder.create('utf-8', { ignoreBOM: true });
-    const chunk = decoder.decodeToStringSync(data);
+    const chunk = decoder.decodeToString(new Uint8Array(data));
     this.buffer += chunk;
 
     const results: Array<{ content: string; reasoningContent?: string; finishReason?: string }> = [];
@@ -97,13 +97,6 @@ export function streamPost(
   httpRequest.on('dataEnd', (): void => {
     hasError = true;
     callbacks.onDone();
-  });
-
-  httpRequest.on('dataError', (_error: number): void => {
-    if (!hasError) {
-      hasError = true;
-      callbacks.onError(new Error('SSE 数据接收错误'));
-    }
   });
 
   const requestBody = JSON.stringify({ ...body, stream: true });
