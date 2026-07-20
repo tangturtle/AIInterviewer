@@ -5,6 +5,7 @@
  * 所有 prompt 使用中文编写，要求 LLM 返回严格 JSON 格式。
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { http } from '@kit.NetworkKit';
 import { post, streamPost, StreamCallbacks } from './http';
 import type {
   ParsedJD, InterviewQuestion, QAPair, InterviewReport
@@ -52,10 +53,10 @@ export async function callLLM(
  * @param apiKey - API Key
  * @param systemPrompt - 系统级提示词
  * @param userPrompt - 用户级提示词
- * @param callbacks - 流式回调
+ * @param callbacks - 流式回调（onContent / onReasoning）
  * @param endpoint - LLM API 端点（可选）
  * @param model - 模型名（可选）
- * @returns HttpRequest 句柄，可调用 destroy() 取消
+ * @returns 包含 request(取消句柄) 和 result(完整文本 Promise) 的对象
  */
 export function callLLMStream(
   apiKey: string,
@@ -64,13 +65,18 @@ export function callLLMStream(
   callbacks: {
     onContent: (fullText: string) => void;
     onReasoning?: (text: string) => void;
-    onComplete: (fullContent: string) => void;
-    onError: (err: Error) => void;
   },
   endpoint: string = DEFAULT_ENDPOINT,
   model: string = DEFAULT_MODEL
-) {
+): { request: http.HttpRequest; result: Promise<string> } {
   let fullText = '';
+  let resolvePromise: (text: string) => void = () => {};
+  let rejectPromise: (err: Error) => void = () => {};
+
+  const result = new Promise<string>((resolve: (text: string) => void, reject: (err: Error) => void) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
 
   const streamCallbacks: StreamCallbacks = {
     onContent: (delta: string): void => {
@@ -81,10 +87,10 @@ export function callLLMStream(
       callbacks.onReasoning?.(text);
     },
     onError: (err: Error): void => {
-      callbacks.onError(err);
+      rejectPromise(err);
     },
     onDone: (): void => {
-      callbacks.onComplete(fullText);
+      resolvePromise(fullText);
     }
   };
 
@@ -97,7 +103,8 @@ export function callLLMStream(
     temperature: 0.7
   };
 
-  return streamPost(endpoint, body, apiKey, streamCallbacks);
+  const request = streamPost(endpoint, body, apiKey, streamCallbacks);
+  return { request, result };
 }
 
 /**

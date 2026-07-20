@@ -1,3 +1,4 @@
+import { util } from '@kit.ArkUI';
 import { http } from '@kit.NetworkKit';
 
 // ── SSE (Server-Sent Events) 流式输出 ───────────────────────
@@ -28,7 +29,8 @@ export class SSESplitter {
    * @returns 解析出的 SSE 事件数组
    */
   feed(data: ArrayBuffer): Array<{ content: string; reasoningContent?: string; finishReason?: string }> {
-    const chunk = String.fromCharCode(...new Uint8Array(data));
+    const decoder = util.TextDecoder.create('utf-8', { ignoreBOM: true });
+    const chunk = decoder.decodeToStringSync(data);
     this.buffer += chunk;
 
     const results: Array<{ content: string; reasoningContent?: string; finishReason?: string }> = [];
@@ -93,7 +95,8 @@ export function streamPost(
   });
 
   httpRequest.on('dataEnd', (): void => {
-    if (!hasError) { callbacks.onDone(); }
+    hasError = true;
+    callbacks.onDone();
   });
 
   httpRequest.on('dataError', (_error: number): void => {
