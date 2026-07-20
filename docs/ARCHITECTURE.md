@@ -20,20 +20,25 @@
 
 项目采用经典三层架构，各层职责明确、单向依赖：
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    UI 层 (pages)                         │
-│  Index.ets → Interview.ets → Report.ets                 │
-│  首页/JD输入   面试答题+追问   三维度评分报告              │
-│  + Setting.ets（API供应商/模型/Key配置+连通测试）         │
-├─────────────────────────────────────────────────────────┤
-│                  工具层 (utils)                          │
-│  PreferencesManager.ets │ http.ts │ prompt.ts │ types.ts│
-│  Key/供应商/模型持久化    │ 网络+连通│ 提示词工程 │ 类型定义 │
-├─────────────────────────────────────────────────────────┤
-│                LLM API 服务层（外部）                      │
-│              LLM 大语言模型推理接口                        │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph UI["UI 层 (pages)"]
+        direction LR
+        I[Index.ets<br/>首页/JD输入] --> IV[Interview.ets<br/>面试答题+追问]
+        IV --> R[Report.ets<br/>三维度评分报告]
+        S[Setting.ets<br/>API供应商/模型/Key配置+连通测试]
+    end
+    subgraph TOOL["工具层 (utils)"]
+        direction LR
+        P[PreferencesManager.ets<br/>Key/供应商/模型持久化]
+        H[http.ts<br/>网络+连通]
+        PR[prompt.ts<br/>提示词工程]
+        T[types.ts<br/>类型定义]
+    end
+    subgraph LLM["LLM API 服务层 (外部)"]
+        L[LLM 大语言模型推理接口]
+    end
+    UI --> TOOL --> LLM
 ```
 
 ### 层间通信规则
@@ -41,7 +46,7 @@
 - **UI 层 → 工具层**：页面通过 `import` 调用 utils 导出函数，传递 `Context` 和业务参数
 - **工具层 → LLM API**：`http.ts` 封装 POST/GET 请求，携带 API Key 和 prompt 负载
 - **UI 层禁止直接调用网络 API**：所有网络请求经过 `utils/http.ts`
-- **UI 层禁止直接读写 Preferences**：通过 `utils/PreferencesManager.ts` 操作
+- **UI 层禁止直接读写 Preferences**：通过 `utils/PreferencesManager.ets` 操作
 
 ## 当前代码资产
 
@@ -104,17 +109,18 @@ entry/src/main/ets/
 
 ## 页面状态机
 
-```
-App（Navigation 主机）
- ├── Index（默认首页）
- │    ├── pushPath → Interview
- │    └── pushPath / replacePath → Setting
- ├── Interview
- │    └── replacePath → Report
- ├── Report
- │    └── pop → Index
- └── Setting
-      └── pop → Index
+```mermaid
+flowchart TD
+    APP[App Navigation 主机]
+    APP -->|默认| IDX[Index 默认首页]
+    APP -->|pushPath| ST[Setting]
+    APP -->|pushPath| IV[Interview]
+    APP -->|replacePath| RP[Report]
+    IDX -->|pushPath| IV
+    IDX -->|pushPath| ST
+    IV -->|replacePath 三轮后| RP
+    RP -->|pop| IDX
+    ST -->|pop 800ms后| IDX
 ```
 
 - **App**：`Navigation` 容器，`NavPathStack` 为空时展示 `IndexPage`

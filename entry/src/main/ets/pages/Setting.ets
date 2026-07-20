@@ -16,6 +16,7 @@ export struct SettingPage {
   @State savedFeedback: boolean = false;
   @State isApiFocused: boolean = false;
   private isLoadingKey: boolean = false;
+  private loadedApiKey: string = '';
 
   private providerOptions: SelectOption[] = [
     { value: 'DeepSeek' },
@@ -31,6 +32,7 @@ export struct SettingPage {
     try {
       const ctx = getContext(this);
       const key = await getApiKey(ctx);
+      this.loadedApiKey = key || '';
       if (key) { this.apiKeyInput = key; }
       const provider = await getProvider(ctx);
       this.providerIndex = provider === 'openai' ? 1 : 0;
@@ -291,8 +293,8 @@ export struct SettingPage {
                 .borderWidth(this.isApiFocused ? 1.5 : 1).padding({ left: 14 }).width('100%')
                 .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.input_background'))
                 .onChange((value: string) => {
-                  if (this.isLoadingKey) { return; }
                   this.apiKeyInput = value;
+                  if (value === this.loadedApiKey) { return; }
                   this.testResult = '';
                   this.modelOptions = [];
                   clearTestCache(getContext(this));

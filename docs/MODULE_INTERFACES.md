@@ -34,6 +34,22 @@ export const DEFAULT_PROVIDER = 'deepseek';
 | `getEndpoint(context: Context): Promise<string>` | 获取当前供应商的完整 API 端点 URL | ✅ |
 | `saveModel(context: Context, model: string): Promise<void>` | 保存选中的模型名 | ✅ |
 | `getModel(context: Context): Promise<string>` | 读取模型名，未设置返回供应商默认模型 | ✅ |
+| `saveTestCache(context: Context, cache: TestCache): Promise<void>` | 保存连接测试缓存（模型列表、余额、结果文本） | ✅ |
+| `getTestCache(context: Context): Promise<TestCache \| null>` | 读取测试缓存，不存在返回 null | ✅ |
+| `clearTestCache(context: Context): Promise<void>` | 清除测试缓存（供应商切换 / Key 变更时调用） | ✅ |
+
+### 导出的接口
+
+```typescript
+/** 连接测试缓存数据结构 */
+export interface TestCache {
+  provider: string;      // 供应商名称
+  models: string[];      // 可用模型 ID 列表
+  testResult: string;    // 上次测试结果文本
+  balance: string;       // 余额信息（仅 DeepSeek）
+  selectedModel: string; // 上次选中的模型
+}
+```
 
 **使用约束：**
 - `context` 参数需从 UIAbility 或页面传入（`getContext()`），不得模块级缓存
@@ -280,26 +296,20 @@ Content-Type: application/json
 
 ## 6. 模块依赖图
 
-```
-Index.ets
-  ├── utils/PreferencesManager.ets  (hasApiKey, getApiKey, saveModel, getTestCache, ...)
-  ├── utils/http.ts                 (fetchModels)
-  └── navStack.pushPath → Interview.ets
-
-Interview.ets
-  ├── utils/PreferencesManager.ets  (getApiKey, getModel)
-  ├── utils/prompt.ts               (callLLM, buildJDPrompt, parseJDResponse, buildQuestionPrompt, ...)
-  ├── utils/types.ts                (ParsedJD, QAPair, InterviewReport, ...)
-  └── navStack.replacePath → Report.ets
-
-Report.ets
-  ├── utils/types.ts                (InterviewReport)
-  └── navStack.pop → Index.ets
-
-Setting.ets
-  ├── utils/PreferencesManager.ets  (saveApiKey, getApiKey, saveProvider, getProvider, saveTestCache, ...)
-  ├── utils/http.ts                 (testConnection, fetchModels, fetchBalance)
-  └── navStack.pop → Index.ets
+```mermaid
+flowchart TD
+    IDX[Index.ets] --> PM1[utils/PreferencesManager.ets<br/>hasApiKey, getApiKey, saveModel, getTestCache]
+    IDX --> HT1[utils/http.ts<br/>fetchModels]
+    IDX -->|navStack.pushPath| IV[Interview.ets]
+    IV --> PM2[utils/PreferencesManager.ets<br/>getApiKey, getModel]
+    IV --> PR[utils/prompt.ts<br/>callLLM, buildJDPrompt, parseJDResponse...]
+    IV --> TY1[utils/types.ts<br/>ParsedJD, QAPair, InterviewReport]
+    IV -->|navStack.replacePath| RP[Report.ets]
+    RP --> TY2[utils/types.ts<br/>InterviewReport]
+    RP -->|navStack.pop| IDX
+    ST[Setting.ets] --> PM3[utils/PreferencesManager.ets<br/>saveApiKey, getApiKey, saveProvider...]
+    ST --> HT2[utils/http.ts<br/>testConnection, fetchModels, fetchBalance]
+    ST -->|navStack.pop| IDX
 ```
 
 各页面**禁止直接 import 系统 API**（`@ohos.net.http`、`@ohos.data.preferences`），所有系统级操作统一经过 `utils/` 层。

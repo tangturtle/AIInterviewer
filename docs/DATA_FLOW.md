@@ -2,103 +2,57 @@
 
 ## 1. 完整面试流程数据流
 
-```
-用户打开应用
-       │
-       ▼
-┌────────────────────────────────────────────────────────────┐
-│                 EntryAbility.ets (应用入口)                  │
-│  → determineStartPage() → 始终返回 'pages/App'             │
-│  → 实际 API Key 检查在 Index.ets 的 aboutToAppear 中异步处理 │
-└────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────────┐
-│                    Setting.ets (配置页)                      │
-│  → 选择供应商（DeepSeek / OpenAI）                          │
-│  → 输入 API Key → 检测连通性（testConnection）              │
-│  → 获取模型列表（fetchModels）→ 选择模型                    │
-│  → 查询余额（fetchBalance，仅DeepSeek）                     │
-│  → 点击确认 → saveApiKey + saveProvider + saveModel        │
-│  → 800ms 延迟 → navStack.pop()                             │
-└────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────────┐
-│                 Index.ets (首页)                             │
-│  → 用户粘贴/输入 JD 文本                                    │
-│  → 检查 API Key（无则自动跳转 Setting）                       │
-│  → navStack.pushPath({                                      │
-│       name: 'Interview',                                    │
-│       param: { jdText }                                     │
-│     })                                                      │
-└────────────────────────────────────────────────────────────┘
-       │
-       ▼ (传参: jdText)
-┌────────────────────────────────────────────────────────────┐
-│              Interview.ets (面试答题) — 7 态状态机            │
-│                                                             │
-│  状态: loading_jd                                           │
-│  ┌─────────────────────────────────────────────┐            │
-│  │ callLLM(apiKey, systemPrompt,               │            │
-│  │   buildJDPrompt(jdText))                    │            │
-│  │ → parseJDResponse() → ParsedJD              │            │
-│  └─────────────────────────────────────────────┘            │
-│       │ (成功)                                               │
-│       ▼                                                    │
-│  状态: loading_question                                     │
-│  ┌─────────────────────────────────────────────┐            │
-│  │ callLLM(apiKey, systemPrompt,               │            │
-│  │   buildQuestionPrompt(jd, round=1))         │            │
-│  │ → parseQuestionResponse() → Question        │            │
-│  └─────────────────────────────────────────────┘            │
-│       │ (成功)                                               │
-│       ▼                                                    │
-│  状态: awaiting_answer                                      │
-│  ┌─────────────────────────────────────────────┐            │
-│  │ 显示题目 → 用户输入回答 → 点击提交           │            │
-│  └─────────────────────────────────────────────┘            │
-│       │ (用户提交)                                            │
-│       ▼ (循环 3 轮)                                          │
-│  状态: loading_followup                                      │
-│  ┌─────────────────────────────────────────────┐            │
-│  │ callLLM(apiKey, systemPrompt,               │            │
-│  │   buildFollowUpPrompt(q, answer, history))  │            │
-│  └─────────────────────────────────────────────┘            │
-│       │ (成功)                                               │
-│       ▼                                                    │
-│  状态: awaiting_followup_answer                             │
-│  ┌─────────────────────────────────────────────┐            │
-│  │ 显示追问 → 用户输入回答 → 点击提交           │            │
-│  │ 循环 3 轮后 → 进入 loading_report           │            │
-│  └─────────────────────────────────────────────┘            │
-│       │ (3 轮完成)                                            │
-│       ▼                                                    │
-│  状态: loading_report                                        │
-│  ┌─────────────────────────────────────────────┐            │
-│  │ callLLM(apiKey, systemPrompt,               │            │
-│  │   buildReportPrompt(qaHistory, jd))         │            │
-│  │ → parseReportResponse() → Report            │            │
-│  └─────────────────────────────────────────────┘            │
-│       │ (成功)                                               │
-│       ▼                                                    │
-│  → navStack.replacePath({                                    │
-│       name: 'Report',                                        │
-│       param: { reportJson: JSON.stringify(report) }          │
-│     })                                                      │
-│                                                             │
-│  任一阶段失败（非 2xx / 解析失败）→ error 状态                │
-│  → 最多重试 2 次                                            │
-│  → 仍失败 → 显示错误提示 + 返回首页                          │
-└────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────────┐
-│              Report.ets (反馈报告)                            │
-│  → 从 reportJson 解析 InterviewReport                       │
-│  → 展示总分 + 三维度（技术/表达/逻辑）评分 + 评语 + 建议     │
-│  → "再来一次" → navStack.pop() → Index                      │
-└────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    START[用户打开应用] --> ENTRY[EntryAbility.ets]
+    ENTRY -->|determineStartPage| APP[加载 pages/App]
+    APP -->|无 API Key| SETUP[Setting.ets 配置页]
+    APP -->|有 API Key| INDEX[Index.ets 首页]
+
+    subgraph SETTING["Setting 配置流程"]
+        SETUP --> SEL[选择供应商 DeepSeek / OpenAI]
+        SEL --> INPUT[输入 API Key]
+        INPUT --> TEST[检测连通性 testConnection]
+        TEST --> LIST[获取模型列表 fetchModels]
+        LIST --> CHOOSE[选择模型]
+        CHOOSE --> SAVE[点击确认<br/>saveApiKey + saveProvider + saveModel]
+        SAVE -->|800ms 延迟| POP[navStack.pop 回 Index]
+    end
+
+    subgraph INDEX_PAGE["Index 首页流程"]
+        INDEX --> PASTE[用户粘贴/输入 JD 文本]
+        PASTE --> CHECK[检查 API Key]
+        CHECK -->|无 Key| GOSET[navStack.replacePath 到 Setting]
+        CHECK -->|有 Key| MODELS[恢复模型列表缓存 / 自动拉取]
+        MODELS --> STARTIV[点击开始面试<br/>navStack.pushPath 到 Interview]
+    end
+
+    subgraph INTERVIEW["Interview 7 态状态机"]
+        direction TB
+        JD[状态: loading_jd<br/>callLLM buildJDPrompt<br/>→ parseJDResponse] -->|成功| Q[状态: loading_question<br/>callLLM buildQuestionPrompt<br/>→ parseQuestionResponse]
+        Q -->|成功| AW[状态: awaiting_answer<br/>显示题目 → 用户输入]
+        AW -->|用户提交| FU[状态: loading_followup<br/>callLLM buildFollowUpPrompt<br/>→ parseFollowUpResponse]
+        FU -->|成功| FAW[状态: awaiting_followup_answer<br/>显示追问 → 用户输入]
+        FAW -->|提交| CHK{round < 3?}
+        CHK -->|是 下一轮| JD
+        CHK -->|否 3轮完成| RPTS[状态: loading_report<br/>callLLM buildReportPrompt<br/>→ parseReportResponse]
+        RPTS -->|成功| GORPT[navStack.replacePath 到 Report]
+        JD -->|失败 x3| ERR[状态: error<br/>显示错误提示]
+        Q -->|失败 x3| ERR
+        AW -->|失败 x3| ERR
+        FU -->|失败 x3| ERR
+        FAW -->|失败 x3| ERR
+        RPTS -->|失败 x3| ERR
+    end
+
+    subgraph REPORT["Report 反馈报告"]
+        GORPT --> PARSE[从 reportJson 解析 InterviewReport]
+        PARSE --> SHOW[展示总分 + 三维度评分]
+        SHOW --> AGAIN[再来一次 navStack.pop 回 Index]
+    end
+
+    INTERVIEW --> REPORT
+    REPORT --> INDEX
 ```
 
 ## 2. 关键数据对象生命周期
@@ -220,20 +174,14 @@ this.navStack.pop();
 
 ## 4. 异步操作流
 
-```
-用户触发操作
-       │
-       ▼
-  pageState = loading_xxx  (更新 UI 为加载态)
-       │
-       ▼
-  await callLLM(apiKey, prompt...)  (LLM 请求)
-       │
-       │  成功               │  失败 & 可重试        │  失败 & 不可重试
-       ▼                     ▼                       ▼
-  解析数据               retryCount++              pageState = error
-  pageState = 下一态      重试请求                   显示错误提示
-  更新 UI                 (最多 2 次)               返回首页
+```mermaid
+flowchart TD
+    TRIG[用户触发操作] --> LOAD[pageState = loading_xxx<br/>更新 UI 为加载态]
+    LOAD --> LLM[await callLLM apiKey, prompt...<br/>LLM 请求]
+    LLM -->|成功| OK[解析数据<br/>pageState = 下一态<br/>更新 UI]
+    LLM -->|失败 & 可重试| RETRY[retryCount++<br/>重试请求<br/>最多2次]
+    LLM -->|失败 & 不可重试| ERR[pageState = error<br/>显示错误提示<br/>返回首页]
+    RETRY --> LLM
 ```
 
 **错误类型与处理策略：**

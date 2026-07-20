@@ -50,7 +50,8 @@ type QuestionType = 'technical' | 'behavioral' | 'project';
 
 ### 2.1 组件装饰器
 
-- ✅ **必须**：页面组件使用 `@Entry` + `@Component` 装饰
+- ✅ **必须**：Navigation 路由主机（`App.ets`）使用 `@Entry` + `@Component` 装饰
+- ✅ **必须**：子页面仅使用 `@Component export struct` + `NavDestination()`，不再用 `@Entry`
 - ✅ **必须**：复用组件仅使用 `@Component`
 - ✅ **推荐**：组件内纯展示子组件用 `@Component` + `@Prop` / `@Link`
 

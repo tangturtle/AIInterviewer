@@ -1,6 +1,6 @@
 import { pasteboard } from '@kit.BasicServicesKit';
 import { hasApiKey, getProvider, getApiKey, getModel, saveModel, getTestCache, BUILTIN_ENDPOINTS, DEFAULT_MODELS } from '../utils/PreferencesManager';
-import { fetchModels } from '../utils/http';
+import { fetchModels, fetchBalance } from '../utils/http';
 
 @Component
 export struct IndexPage {
@@ -127,6 +127,11 @@ export struct IndexPage {
     } else {
       this.modelOptions = [{ value: this.selectedModel }];
       this.modelIndex = 0;
+    }
+    // 独立获取余额（仅 DeepSeek）
+    if (provider === 'deepseek') {
+      const balance = await fetchBalance(key);
+      if (balance) { this.balanceInfo = balance; }
     }
   }
 

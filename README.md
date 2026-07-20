@@ -60,7 +60,10 @@ git clone https://github.com/tangturtle/AIInterviewer.git
 ├── entry/src/main/ets/
 │   ├── entryability/
 │   │   └── EntryAbility.ets          # UIAbility 生命周期
+│   ├── entrybackupability/
+│   │   └── EntryBackupAbility.ets    # 备份恢复 Ability
 │   ├── pages/
+│   │   ├── App.ets                   # Navigation 路由主机（@Entry）
 │   │   ├── Index.ets                 # 首页：JD 输入 / 粘贴
 │   │   ├── Interview.ets             # 面试答题页（7 态状态机）
 │   │   ├── Report.ets                # 评分报告页
