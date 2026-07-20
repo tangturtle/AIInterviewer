@@ -121,13 +121,6 @@ const models = await fetchModels(apiKey, endpoint);
 
 提示词工程模块，管理所有 LLM prompt 模板和解析逻辑。
 
-### 导出常量
-
-```typescript
-export const DEFAULT_ENDPOINT = 'https://api.deepseek.com/chat/completions';
-export const DEFAULT_MODEL = 'deepseek-v4-flash';
-```
-
 ### 导出函数
 
 | 函数签名 | 说明 | 异步 |
@@ -140,6 +133,7 @@ export const DEFAULT_MODEL = 'deepseek-v4-flash';
 | `buildFollowUpPrompt(question: InterviewQuestion, answer: string, history: QAPair[]): string` | 根据用户回答生成追问 prompt | 同步 |
 | `buildReportPrompt(qaHistory: QAPair[], jd: ParsedJD): string` | 生成三维度评分 prompt | 同步 |
 | `parseReportResponse(response: string): InterviewReport \| null` | 解析 LLM 返回的评分报告 | 同步 |
+| `parseFollowUpResponse(response: string): string \| null` | 解析 LLM 返回的追问纯文本 | 同步 |
 
 ### 数据类型
 
@@ -187,41 +181,40 @@ interface InterviewReport {
 
 | 特性 | 说明 |
 |---|---|
-| 路由路径 | `pages/Index` |
-| 接收参数 | 无（入口页） |
-| @State | `jdText: string`（JD 输入文本）, `apiKeyDialog: boolean`（API Key 弹窗控制） |
-| 主要交互 | 输入/粘贴 JD → 校验 API Key（无则弹窗） → 点击开始 → `router.pushUrl({ url: 'pages/Interview', params: { jdText, apiKey } })` |
-| 前置条件 | 首次使用时需配置 API Key（通过弹窗调用 `saveApiKey`） |
+| 路由方式 | Navigation 默认页（NavPathStack 为空时由 App.ets 渲染） |
+| 接收参数 | 无 |
+| @State | `jdText`, `hasKey`, `selectedModel`, `modelOptions`, `modelIndex`, `balanceInfo`, `connectionStatus`, `statusType` |
+| 主要交互 | 输入/粘贴 JD → 检查 API Key（无则 replacePath 到 Setting）→ 模型选择（支持缓存恢复+自动拉取）→ 点击开始 → `navStack.pushPath({ name: 'Interview', param: { jdText } })` |
 
 ### Interview.ets（面试答题页）
 
 | 特性 | 说明 |
 |---|---|
-| 路由路径 | `pages/Interview` |
-| 接收参数 | `jdText: string`, `apiKey: string` |
-| @State | `currentQuestion: InterviewQuestion`, `round: number`, `answer: string`, `qaHistory: QAPair[]`, `pageState: PageState`（7 态状态机） |
-| 主要交互 | 解析 JD → 展示题目 → 用户输入回答 → LLM 追问（最多三轮）→ 生成 Report → replaceUrl |
-| 出口 | 三轮完成后 `router.replaceUrl({ url: 'pages/Report', params: { report, qaHistory, jd } })` |
+| 路由方式 | `navStack.pushPath({ name: 'Interview', param: { jdText } })` |
+| 接收参数 | `jdText: string` |
+| @State | `pageState: string`, `parsedJD`, `currentRound: number`, `currentQuestion`, `currentAnswer`, `followUpQuestion`, `followUpAnswer`, `qaHistory`, `errorMessage`, `retryCount` |
+| 主要交互 | 解析 JD → 展示题目 → 用户输入回答 → LLM 追问（每轮 1 次追问，共 3 轮）→ 生成 Report → replacePath |
+| 出口 | 三轮完成后 `navStack.replacePath({ name: 'Report', param: { reportJson: JSON.stringify(report) } })` |
 
 ### Report.ets（反馈报告页）
 
 | 特性 | 说明 |
 |---|---|
-| 路由路径 | `pages/Report` |
+| 路由方式 | `navStack.replacePath({ name: 'Report', param: { reportJson } })` |
 | 接收参数 | `reportJson: string`（JSON 序列化的 InterviewReport） |
-| @State | `report: InterviewReport`（从 reportJson 解析） |
-| 主要交互 | 展示总分 + 三维度评分（分数/评语/建议列表） → "再来一次" 按钮 → `router.back()` |
-| 出口 | 返回首页 |
+| @State | `report: InterviewReport \| null` |
+| 主要交互 | 展示总分 + 三维度（技术/表达/逻辑）评分 + 评语 + 建议列表 → "再来一次" → `navStack.pop()` |
+| 出口 | 返回 Index |
 
 ### Setting.ets（配置页）
 
 | 特性 | 说明 |
 |---|---|
-| 路由路径 | `pages/Setting` |
+| 路由方式 | `navStack.pushPath({ name: 'Setting' })` 或 replacePath |
 | 接收参数 | 无 |
-| @State | `apiKeyInput: string`, `providerIndex: number`, `models: string[]`, `selectedModel: string`, `testResult: string`, `balance: string` |
-| 主要交互 | 选择供应商 → 输入 API Key → 检测连通性 → 获取模型列表 → 选择模型 → 确认保存 → replaceUrl 回 Index |
-| 出口 | `router.replaceUrl({ url: 'pages/Index' })` |
+| @State | `providerIndex`, `apiKeyInput`, `testResult`, `isTesting`, `balanceInfo`, `modelOptions`, `modelIndex`, `selectedModel`, `savedFeedback`, `isApiFocused` |
+| 主要交互 | 选择供应商 → 输入 API Key → 检测连通性 → 获取模型列表 → 选择模型 → 确认保存 → `navStack.pop()` |
+| 出口 | 保存成功 800ms 后 pop 回 Index |
 
 ---
 
@@ -289,23 +282,24 @@ Content-Type: application/json
 
 ```
 Index.ets
-  ├── utils/PreferencesManager.ets  (hasApiKey, saveApiKey)
-  └── router.pushUrl → Interview.ets
+  ├── utils/PreferencesManager.ets  (hasApiKey, getApiKey, saveModel, getTestCache, ...)
+  ├── utils/http.ts                 (fetchModels)
+  └── navStack.pushPath → Interview.ets
 
 Interview.ets
-  ├── utils/http.ts                 (LLM 请求 via callLLM)
-  ├── utils/prompt.ts               (buildJDPrompt, parseJDResponse, buildQuestionPrompt, ...)
+  ├── utils/PreferencesManager.ets  (getApiKey, getModel)
+  ├── utils/prompt.ts               (callLLM, buildJDPrompt, parseJDResponse, buildQuestionPrompt, ...)
   ├── utils/types.ts                (ParsedJD, QAPair, InterviewReport, ...)
-  └── router.replaceUrl → Report.ets
+  └── navStack.replacePath → Report.ets
 
 Report.ets
   ├── utils/types.ts                (InterviewReport)
-  └── router.back → Index.ets
+  └── navStack.pop → Index.ets
 
 Setting.ets
-  ├── utils/PreferencesManager.ets  (saveApiKey, getApiKey, saveProvider, ...)
+  ├── utils/PreferencesManager.ets  (saveApiKey, getApiKey, saveProvider, getProvider, saveTestCache, ...)
   ├── utils/http.ts                 (testConnection, fetchModels, fetchBalance)
-  └── router.replaceUrl → Index.ets
+  └── navStack.pop → Index.ets
 ```
 
 各页面**禁止直接 import 系统 API**（`@ohos.net.http`、`@ohos.data.preferences`），所有系统级操作统一经过 `utils/` 层。

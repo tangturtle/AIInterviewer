@@ -42,13 +42,6 @@ const val = obj?.nestedProp ?? defaultValue;
 ```typescript
 // ✅ 类型联合
 type QuestionType = 'technical' | 'behavioral' | 'project';
-
-// ✅ 枚举
-enum ScoreDimension {
-  TECHNICAL = 'technical',
-  EXPRESSION = 'expression',
-  LOGIC = 'logic'
-}
 ```
 
 ---
