@@ -4,6 +4,7 @@
  * 管理所有 LLM prompt 模板和 JSON 响应解析逻辑。
  * 所有 prompt 使用中文编写，要求 LLM 返回严格 JSON 格式。
  */
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { post } from './http';
 import type {
   ParsedJD, InterviewQuestion, QAPair, InterviewReport
@@ -222,7 +223,8 @@ function extractContent(response: string): string | null {
       return null;
     }
     return content;
-  } catch {
+  } catch (err) {
+    hilog.error(0x0000, 'AIInterviewer', 'extractContent: failed to parse LLM response: %{public}s', err instanceof Error ? err.message : JSON.stringify(err));
     return null;
   }
 }
@@ -333,7 +335,7 @@ export function parseReportResponse(response: string): InterviewReport | null {
     }
 
     const dims = data.dimensions;
-    const validateDim = (d: any): boolean =>
+    const validateDim = (d: Record<string, Object>): boolean =>
       typeof d.score === 'number' &&
       d.score >= 0 && d.score <= 100 &&
       typeof d.comment === 'string' &&

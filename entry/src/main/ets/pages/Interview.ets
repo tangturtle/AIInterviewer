@@ -104,9 +104,6 @@ export struct InterviewPage {
   private async startInterviewFlow(): Promise<void> {
     this.apiKey = (await getApiKey(getContext(this))) || '';
     this.modelName = await getModel(getContext(this));
-    if (!this.modelName) {
-      this.modelName = 'deepseek-v4-flash';
-    }
     if (!this.apiKey) {
       this.errorMessage = '请先配置 API Key';
       this.pageState = 'error';

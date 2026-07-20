@@ -40,25 +40,11 @@ export interface QAPair {
   followUps: FollowUpItem[];
 }
 
-/** 评分维度枚举 */
-export enum ScoreDimension {
-  TECHNICAL = 'technical',
-  EXPRESSION = 'expression',
-  LOGIC = 'logic'
-}
-
 /** 某维度的评分详情 */
 export interface DimensionScore {
   score: number;              // 分数（百分制）
   comment: string;            // 评语
   suggestions: string[];      // 改进建议列表
-}
-
-/** API 供应商信息 */
-export interface ApiProvider {
-  name: string;        // 唯一标识（如 'openai', 'deepseek'）
-  label: string;       // 显示名称（如 'OpenAI', 'DeepSeek'）
-  endpoint: string;    // API 端点 URL
 }
 
 /** LLM 返回的完整面试报告 */

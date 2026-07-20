@@ -15,15 +15,11 @@ export struct SettingPage {
   @State selectedModel: string = '';
   @State savedFeedback: boolean = false;
   @State isApiFocused: boolean = false;
+  private isLoadingKey: boolean = false;
 
   private providerOptions: SelectOption[] = [
     { value: 'DeepSeek' },
     { value: 'OpenAI' }
-  ];
-
-  private readonly providerCardColors: Resource[] = [
-    $r('app.color.badge_technical_text'),
-    $r('app.color.badge_project_text')
   ];
 
   aboutToAppear(): void {
@@ -31,32 +27,88 @@ export struct SettingPage {
   }
 
   private async loadSettings(): Promise<void> {
-    const ctx = getContext(this);
-    const key = await getApiKey(ctx);
-    if (key) { this.apiKeyInput = key; }
-    const provider = await getProvider(ctx);
-    this.providerIndex = provider === 'openai' ? 1 : 0;
-    const savedModel = await getModel(ctx);
-    if (savedModel) { this.selectedModel = savedModel; }
+    this.isLoadingKey = true;
+    try {
+      const ctx = getContext(this);
+      const key = await getApiKey(ctx);
+      if (key) { this.apiKeyInput = key; }
+      const provider = await getProvider(ctx);
+      this.providerIndex = provider === 'openai' ? 1 : 0;
+      const savedModel = await getModel(ctx);
+      if (savedModel) { this.selectedModel = savedModel; }
 
-    // 恢复测试缓存，避免每次都需要重新检测连通性
-    const cache = await getTestCache(ctx);
-    const currentProvider = this.getProviderName(this.providerIndex);
-    if (cache && cache.provider === currentProvider && cache.models.length > 0) {
-      this.testResult = cache.testResult;
-      this.balanceInfo = cache.balance;
-      const opts: SelectOption[] = [];
-      for (let i = 0; i < cache.models.length; i++) { opts.push({ value: cache.models[i] }); }
-      this.modelOptions = opts;
-      const idx = cache.models.indexOf(cache.selectedModel);
-      if (idx >= 0) {
-        this.modelIndex = idx;
-        this.selectedModel = cache.models[idx];
-      } else if (cache.models.length > 0) {
-        this.modelIndex = 0;
-        this.selectedModel = cache.models[0];
+      // 恢复测试缓存，避免每次都需要重新检测连通性
+      const cache = await getTestCache(ctx);
+      const currentProvider = this.getProviderName(this.providerIndex);
+      if (cache && cache.provider === currentProvider && cache.models.length > 0) {
+        this.testResult = cache.testResult;
+        this.balanceInfo = cache.balance;
+        const opts: SelectOption[] = [];
+        for (let i = 0; i < cache.models.length; i++) { opts.push({ value: cache.models[i] }); }
+        this.modelOptions = opts;
+        const idx = cache.models.indexOf(cache.selectedModel);
+        if (idx >= 0) {
+          this.modelIndex = idx;
+          this.selectedModel = cache.models[idx];
+        } else if (cache.models.length > 0) {
+          this.modelIndex = 0;
+          this.selectedModel = cache.models[0];
+        }
+      } else if (this.apiKeyInput) {
+        // 有 Key 但无缓存/缓存不匹配，自动获取模型列表，无需手动点检测
+        void this.fetchModelsSilent();
       }
+    } finally {
+      this.isLoadingKey = false;
     }
+  }
+
+  private async fetchModelsSilent(): Promise<void> {
+    const provider = this.getProviderName(this.providerIndex);
+    const endpoint = BUILTIN_ENDPOINTS[provider];
+    const apiKey = this.apiKeyInput.trim();
+    if (!apiKey) { return; }
+
+    let models: string[] = [];
+    try {
+      models = await fetchModels(apiKey, endpoint);
+    } catch (_e) {
+      this.testResult = '✗ 网络异常，可点击检测连通性重试';
+      this.modelOptions = this.selectedModel ? [{ value: this.selectedModel }] : [];
+      return;
+    }
+    if (models.length > 0) {
+      const opts: SelectOption[] = [];
+      for (let i = 0; i < models.length; i++) { opts.push({ value: models[i] }); }
+      this.modelOptions = opts;
+      this.testResult = '连接成功，已获取 ' + models.length + ' 个模型';
+      let foundIdx = 0;
+      for (let i = 0; i < models.length; i++) {
+        if (models[i] === this.selectedModel) { foundIdx = i; break; }
+      }
+      this.modelIndex = foundIdx;
+      this.selectedModel = models[foundIdx];
+    } else {
+      const dm = DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
+      this.modelOptions = [{ value: dm }];
+      this.modelIndex = 0;
+      this.selectedModel = dm;
+      this.testResult = '连接成功（无法获取模型列表，使用默认模型）';
+    }
+    let balanceInfo = '';
+    if (provider === 'deepseek') {
+      const balance = await fetchBalance(apiKey);
+      if (balance) { balanceInfo = balance; this.balanceInfo = balance; }
+    }
+    const modelsArr: string[] = [];
+    for (let i = 0; i < this.modelOptions.length; i++) { modelsArr.push('' + this.modelOptions[i].value); }
+    await saveTestCache(getContext(this), {
+      provider: provider,
+      models: modelsArr,
+      testResult: this.testResult,
+      balance: balanceInfo,
+      selectedModel: this.selectedModel
+    });
   }
 
   private getProviderName(index: number): string {
@@ -165,25 +217,26 @@ export struct SettingPage {
       Scroll() {
         Column() {
           // ── 页面标题 ────────────────────────────────
-          Text('API 配置')
-            .fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_primary'))
-            .width('100%').margin({ top: 32, bottom: 24 });
+          Column() {
+            Text('API 配置')
+              .fontSize(24).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_primary'));
+            Text('设置接口供应商和模型参数')
+              .fontSize(13).fontColor($r('app.color.text_secondary')).margin({ top: 4 });
+          }
+          .width('100%').alignItems(HorizontalAlign.Start).margin({ top: 32, bottom: 24 });
 
           // ═══ 供应商卡片 ══════════════════════════════
           Column() {
             Row() {
-              Column()
-                .width(4).height(40)
-                .backgroundColor(this.providerCardColors[this.providerIndex])
-                .borderRadius(2)
-                .margin({ right: 12 });
+              Text('🔌').fontSize(18).margin({ right: 12 });
               Column() {
                 Text('接口供应商').fontSize(15).fontWeight(FontWeight.Medium)
                   .fontColor($r('app.color.text_primary'));
-                Text('当前: ' + this.getProviderLabel(this.providerIndex))
+                Text(this.getProviderLabel(this.providerIndex) === 'DeepSeek'
+                  ? '国内可直连，支持 JSON mode' : '海外标杆，需代理/VPN')
                   .fontSize(12).fontColor($r('app.color.text_tip')).margin({ top: 2 });
               }
-              .alignItems(HorizontalAlign.Start);
+              .alignItems(HorizontalAlign.Start).layoutWeight(1);
             }
             .width('100%').margin({ bottom: 12 });
 
@@ -220,18 +273,14 @@ export struct SettingPage {
           // ═══ API Key 卡片 ════════════════════════════
           Column() {
             Row() {
-              Column()
-                .width(4).height(40)
-                .backgroundColor($r('app.color.badge_behavioral_text'))
-                .borderRadius(2)
-                .margin({ right: 12 });
+              Text('🔑').fontSize(18).margin({ right: 12 });
               Column() {
                 Text('API Key').fontSize(15).fontWeight(FontWeight.Medium)
                   .fontColor($r('app.color.text_primary'));
                 Text('密钥仅保存在本地，不会上传云端')
                   .fontSize(12).fontColor($r('app.color.text_tip')).margin({ top: 2 });
               }
-              .alignItems(HorizontalAlign.Start);
+              .alignItems(HorizontalAlign.Start).layoutWeight(1);
             }
             .width('100%').margin({ bottom: 12 });
 
@@ -242,6 +291,7 @@ export struct SettingPage {
                 .borderWidth(this.isApiFocused ? 1.5 : 1).padding({ left: 14 }).width('100%')
                 .fontColor($r('app.color.text_primary')).backgroundColor($r('app.color.input_background'))
                 .onChange((value: string) => {
+                  if (this.isLoadingKey) { return; }
                   this.apiKeyInput = value;
                   this.testResult = '';
                   this.modelOptions = [];
@@ -249,7 +299,8 @@ export struct SettingPage {
                 })
                 .onFocus((): void => { this.isApiFocused = true; })
                 .onBlur((): void => { this.isApiFocused = false; })
-                .accessibilityText('输入 API Key');
+                .accessibilityText('输入 API Key')
+                .layoutWeight(1);
             }
             .width('100%');
 
@@ -267,14 +318,20 @@ export struct SettingPage {
           if (this.testResult.length > 0) {
             Column() {
               Row() {
-                Text(this.getResultIcon()).fontSize(16)
-                  .fontColor(this.getResultColor()).margin({ right: 8 });
+                Text(this.getResultIcon()).fontSize(20)
+                  .fontColor(this.getResultColor()).margin({ right: 10 });
                 Column() {
                   Text(this.testResult).fontSize(14)
                     .fontColor(this.getResultColor());
                   if (this.balanceInfo.length > 0) {
-                    Text(this.balanceInfo).fontSize(12)
-                      .fontColor($r('app.color.text_tip')).margin({ top: 4 });
+                    Divider().height(1).color($r('app.color.border')).margin({ top: 8, bottom: 8 });
+                    Row() {
+                      Text('💰').fontSize(14).margin({ right: 6 });
+                      Text('余额').fontSize(13).fontColor($r('app.color.text_primary'));
+                      Text(this.balanceInfo).fontSize(13)
+                        .fontColor($r('app.color.text_success')).margin({ left: 'auto' });
+                    }
+                    .width('100%');
                   }
                 }
                 .alignItems(HorizontalAlign.Start).layoutWeight(1);
@@ -289,18 +346,14 @@ export struct SettingPage {
           if (this.modelOptions.length > 0) {
             Column() {
               Row() {
-                Column()
-                  .width(4).height(40)
-                  .backgroundColor($r('app.color.badge_project_text'))
-                  .borderRadius(2)
-                  .margin({ right: 12 });
+                Text('🧠').fontSize(18).margin({ right: 12 });
                 Column() {
                   Text('选择模型').fontSize(15).fontWeight(FontWeight.Medium)
                     .fontColor($r('app.color.text_primary'));
                   Text('当前: ' + this.modelOptions[this.modelIndex].value)
                     .fontSize(12).fontColor($r('app.color.text_tip')).margin({ top: 2 });
                 }
-                .alignItems(HorizontalAlign.Start);
+                .alignItems(HorizontalAlign.Start).layoutWeight(1);
               }
               .width('100%').margin({ bottom: 12 });
 

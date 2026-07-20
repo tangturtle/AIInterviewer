@@ -57,9 +57,6 @@ export async function testConnection(apiKey: string, endpoint: string, model: st
   }
 }
 
-
-
-
 /**
  * 从 chat/completions 端点推导模型列表 URL
  */

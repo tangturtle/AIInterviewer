@@ -1,5 +1,6 @@
 import { pasteboard } from '@kit.BasicServicesKit';
-import { hasApiKey, getModel, saveModel, getTestCache } from '../utils/PreferencesManager';
+import { hasApiKey, getProvider, getApiKey, getModel, saveModel, getTestCache, BUILTIN_ENDPOINTS, DEFAULT_MODELS } from '../utils/PreferencesManager';
+import { fetchModels } from '../utils/http';
 
 @Component
 export struct IndexPage {
@@ -11,7 +12,10 @@ export struct IndexPage {
   @State modelOptions: SelectOption[] = [];
   @State modelIndex: number = 0;
   @State balanceInfo: string = '';
-  @State showModelPicker: boolean = false;
+  @State isExpanded: boolean = false;
+  @State connectionStatus: string = '';
+  @State statusType: string = ''; // 'success' | 'warning'
+  @State private redirectedToSetting: boolean = false;
 
   aboutToAppear(): void {
     this.checkApiKey();
@@ -19,22 +23,28 @@ export struct IndexPage {
 
   private async checkApiKey(): Promise<void> {
     this.hasKey = await hasApiKey(getContext(this));
-    if (!this.hasKey) {
+    if (!this.hasKey && !this.redirectedToSetting) {
+      this.redirectedToSetting = true;
       const settingPath: NavPathInfo = { name: 'Setting' };
       this.navStack.replacePath(settingPath);
       return;
     }
-    // 加载当前模型
     this.selectedModel = await getModel(getContext(this));
-    // 恢复测试缓存（模型列表 + 余额）
     const cache = await getTestCache(getContext(this));
     if (cache && cache.models.length > 0) {
-      const opts: SelectOption[] = [];
-      for (let i = 0; i < cache.models.length; i++) { opts.push({ value: cache.models[i] }); }
-      this.modelOptions = opts;
-      const idx = cache.models.indexOf(this.selectedModel);
-      this.modelIndex = idx >= 0 ? idx : 0;
+      this.modelOptions = this.buildModelOptions(cache.models);
+      this.updateModelSelection(cache.models);
       if (cache.balance) { this.balanceInfo = cache.balance; }
+      this.connectionStatus = '';
+      this.statusType = 'success';
+    } else if (this.selectedModel) {
+      this.connectionStatus = '';
+      this.statusType = 'success';
+      // 自动从后端拉取完整模型列表
+      void this.tryFetchModels().catch(() => {});
+    } else {
+      this.connectionStatus = '请先在设置中配置 API';
+      this.statusType = 'warning';
     }
   }
 
@@ -81,6 +91,45 @@ export struct IndexPage {
     await saveModel(getContext(this), value);
   }
 
+  private buildModelOptions(models: string[]): SelectOption[] {
+    const opts: SelectOption[] = [];
+    for (let i = 0; i < models.length; i++) { opts.push({ value: models[i] }); }
+    return opts;
+  }
+
+  private updateModelSelection(models: string[]): void {
+    const idx = models.indexOf(this.selectedModel);
+    if (idx >= 0) {
+      this.modelIndex = idx;
+    } else {
+      this.modelIndex = 0;
+      this.selectedModel = models[0];
+    }
+  }
+
+  private async tryFetchModels(): Promise<void> {
+    const ctx = getContext(this);
+    const provider = await getProvider(ctx);
+    const endpoint = BUILTIN_ENDPOINTS[provider] || BUILTIN_ENDPOINTS.deepseek;
+    const cache = await getTestCache(ctx);
+    if (cache && cache.models.length > 0) {
+      this.modelOptions = this.buildModelOptions(cache.models);
+      this.updateModelSelection(cache.models);
+      return;
+    }
+    const key = await getApiKey(ctx);
+    if (!key) { return; }
+    const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
+    const models = await fetchModels(key, endpoint);
+    if (models.length > 0) {
+      this.modelOptions = this.buildModelOptions(models);
+      this.updateModelSelection(models);
+    } else {
+      this.modelOptions = [{ value: this.selectedModel }];
+      this.modelIndex = 0;
+    }
+  }
+
   build() {
     Column() {
       // ── 品牌区 ─────────────────────────────────────
@@ -109,30 +158,70 @@ export struct IndexPage {
       .alignItems(HorizontalAlign.Center)
       .margin({ top: 32, bottom: 28 });
 
+      // ── 连接状态条 ────────────────────────────
+      if (this.connectionStatus.length > 0) {
+        Row() {
+          Text(this.statusType === 'success' ? '✓' : '!')
+            .fontSize(12)
+            .fontColor(this.statusType === 'success'
+              ? $r('app.color.text_success') : $r('app.color.text_warning'))
+            .margin({ right: 6 });
+          Text(this.connectionStatus)
+            .fontSize(12)
+            .fontColor(this.statusType === 'success'
+              ? $r('app.color.text_success') : $r('app.color.text_warning'));
+        }
+        .padding({ top: 6, bottom: 6, left: 12, right: 12 })
+        .backgroundColor(this.statusType === 'success'
+          ? $r('app.color.success_bg') : $r('app.color.warning_bg'))
+        .borderRadius(8)
+        .width('100%')
+        .margin({ bottom: 16 });
+      }
+
       // ── JD 输入卡片 ─────────────────────────────────
       Column() {
-        TextArea({
-          text: this.jdText,
-          placeholder: $r('app.string.index_jd_placeholder')
-        })
-          .height(200)
-          .borderRadius(12)
-          .borderColor(this.isFocused ? $r('app.color.input_focus_border') : $r('app.color.border'))
-          .borderWidth(1.5)
-          .padding(14)
-          .fontSize(15)
-          .fontColor($r('app.color.text_primary'))
-          .backgroundColor($r('app.color.input_background'))
-          .onChange((value: string) => {
-            this.jdText = value;
+        Row() {
+          Text('职位描述')
+            .fontSize(15).fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_primary'));
+          Text('粘贴或输入岗位 JD')
+            .fontSize(12).fontColor($r('app.color.text_tip'))
+            .margin({ left: 8 });
+        }
+        .width('100%').margin({ bottom: 8 });
+
+        Stack() {
+          TextArea({
+            text: this.jdText,
+            placeholder: $r('app.string.index_jd_placeholder')
           })
-          .onFocus((): void => {
-            this.isFocused = true;
-          })
-          .onBlur((): void => {
-            this.isFocused = false;
-          })
-          .accessibilityText('请输入职位描述文本')
+            .height(200)
+            .borderRadius(12)
+            .borderColor(this.isFocused ? $r('app.color.input_focus_border') : $r('app.color.border'))
+            .borderWidth(1.5)
+            .padding(14)
+            .fontSize(15)
+            .fontColor($r('app.color.text_primary'))
+            .backgroundColor($r('app.color.input_background'))
+            .onChange((value: string) => {
+              this.jdText = value;
+            })
+            .onFocus((): void => {
+              this.isFocused = true;
+            })
+            .onBlur((): void => {
+              this.isFocused = false;
+            })
+            .accessibilityText('请输入职位描述文本')
+
+          Text(this.jdText.length + ' 字')
+            .fontSize(11).fontColor($r('app.color.text_tip'))
+            .align(Alignment.TopEnd)
+            .margin({ top: 8, right: 8 });
+        }
+        .align(Alignment.TopEnd)
+        .width('100%')
 
         if (this.jdText.trim().length > 0) {
           Row() {
@@ -155,37 +244,46 @@ export struct IndexPage {
           Row() {
             Text('📋')
               .fontSize(16)
-              .margin({ right: 4 });
-            Text($r('app.string.index_paste_button'))
-              .fontSize(15)
-              .fontColor($r('app.color.text_primary'));
+              .margin({ right: 6 });
+            Column() {
+              Text($r('app.string.index_paste_button'))
+                .fontSize(14)
+                .fontColor($r('app.color.text_primary'));
+              Text('粘贴板').fontSize(10)
+                .fontColor($r('app.color.text_tip'));
+            }
+            .alignItems(HorizontalAlign.Center);
           }
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.Center)
         }
         .backgroundColor($r('app.color.step_inactive'))
-        .borderRadius(10)
-        .height(46)
+        .borderRadius(12)
+        .height(54)
         .layoutWeight(1)
-        .margin({ right: 12 })
+        .margin({ right: 8 })
         .onClick(() => this.pasteFromClipboard())
         .accessibilityText('从剪贴板粘贴')
 
         Button() {
           Row() {
-            Text('▶')
-              .fontSize(14)
-              .margin({ right: 4 });
-            Text($r('app.string.index_start_button'))
-              .fontSize(15)
-              .fontColor($r('app.color.white'));
+            Column() {
+              Text($r('app.string.index_start_button'))
+                .fontSize(14)
+                .fontColor($r('app.color.white'));
+              Text('AI 模拟面试').fontSize(10)
+                .fontColor($r('app.color.white')).opacity(0.7);
+            }
+            .alignItems(HorizontalAlign.Center);
+            Text('▶').fontSize(16)
+              .fontColor($r('app.color.white')).margin({ left: 6 });
           }
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.Center)
         }
         .backgroundColor($r('app.color.primary'))
-        .borderRadius(10)
-        .height(46)
+        .borderRadius(12)
+        .height(54)
         .layoutWeight(1)
         .enabled(this.jdText.trim().length > 0)
         .opacity(this.jdText.trim().length > 0 ? 1 : 0.45)
@@ -194,6 +292,15 @@ export struct IndexPage {
       }
       .width('100%')
       .margin({ top: 16 });
+
+      // ── 底部提示 ────────────────────────────
+      Row() {
+        Text('💡 步骤：').fontSize(12).fontColor($r('app.color.text_warning'))
+          .margin({ right: 4 });
+        Text('配置 API → 粘贴 JD → 开始面试')
+          .fontSize(12).fontColor($r('app.color.text_tip'));
+      }
+      .width('100%').margin({ top: 20 });
 
       // ── API Key 状态卡片 ──────────────────────────
       Column() {
@@ -259,10 +366,19 @@ export struct IndexPage {
             Text('模型:')
               .fontSize(13)
               .fontColor($r('app.color.text_tip'))
-              .margin({ right: 6 });
-            Text(this.selectedModel || '未设置')
-              .fontSize(13)
-              .fontColor($r('app.color.text_secondary'));
+              .margin({ right: 8 });
+            Select([{ value: this.selectedModel || '选择模型' }])
+              .selected(0).value(this.selectedModel || '选择模型')
+              .font({ size: 13 }).layoutWeight(1)
+              .fontColor($r('app.color.primary'))
+              .optionFont({ size: 13 })
+              .optionFontColor($r('app.color.text_primary'))
+              .optionBgColor($r('app.color.card_background'))
+              .selectedOptionFont({ size: 13, weight: FontWeight.Medium })
+              .selectedOptionFontColor($r('app.color.primary'))
+              .selectedOptionBgColor($r('app.color.primary_light'))
+              .menuBackgroundColor($r('app.color.card_background'))
+              .accessibilityText('切换模型');
           }
           .width('100%')
           .margin({ top: 10 });

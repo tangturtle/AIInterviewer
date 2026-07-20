@@ -1,3 +1,4 @@
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import type { InterviewReport } from '../utils/types';
 
 @Component
@@ -14,7 +15,7 @@ export struct ReportPage {
         const parsed = JSON.parse(reportJson as string) as InterviewReport;
         this.report = parsed;
       } catch (err) {
-        // 解析失败，report 保持 null
+        hilog.error(0x0000, 'AIInterviewer', 'Report aboutToAppear parse error: %{public}s', JSON.stringify(err));
       }
     }
   }
@@ -90,7 +91,9 @@ export struct ReportPage {
         if (this.params?.reportJson && !this.report) {
           try {
             this.report = JSON.parse(this.params.reportJson as string) as InterviewReport;
-          } catch (err) {}
+          } catch (err) {
+            hilog.error(0x0000, 'AIInterviewer', 'Report onReady parse error: %{public}s', JSON.stringify(err));
+          }
         }
       }
     });
