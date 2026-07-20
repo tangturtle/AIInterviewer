@@ -66,6 +66,41 @@ export class SSESplitter {
     }
     return results;
   }
+
+  /**
+   * 直接解析完整 SSE 文本响应（用于 Promise.then 兜底）
+   * @param text - 完整的 SSE 响应体字符串
+   * @returns 解析出的 SSE 事件数组
+   */
+  feedText(text: string): Array<{ content: string; reasoningContent?: string; finishReason?: string }> {
+    const results: Array<{ content: string; reasoningContent?: string; finishReason?: string }> = [];
+    const parts = text.split('\n\n');
+    for (const part of parts) {
+      for (const line of part.split('\n')) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') { continue; }
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed?.choices?.[0]?.delta;
+            const finishReason = parsed?.choices?.[0]?.finish_reason;
+            if (delta || finishReason) {
+              const evt: { content: string; reasoningContent?: string; finishReason?: string } = { content: '' };
+              if (delta?.content) { evt.content = delta.content; }
+              if (delta?.reasoning_content) { evt.reasoningContent = delta.reasoning_content; }
+              if (finishReason) { evt.finishReason = finishReason; }
+              if (evt.content || evt.reasoningContent || evt.finishReason) {
+                results.push(evt);
+              }
+            }
+          } catch (_err) {
+            // 忽略解析失败的行
+          }
+        }
+      }
+    }
+    return results;
+  }
 }
 
 /**
@@ -114,9 +149,20 @@ export function streamPost(
     expectDataType: http.HttpDataType.STRING,
     connectTimeout: 15000,
     readTimeout: 60000
-  }).then((): void => {
+  }).then((resp: http.HttpResponse): void => {
     if (!hasCompleted) {
       hasCompleted = true;
+      // HarmonyOS on('dataReceive') 在 SSE 流式中可能不触发，
+      // 从 Promise.then 的完整响应体中兜底解析
+      const body = resp.result as string;
+      if (body && body.length > 0) {
+        const events = splitter.feedText(body);
+        for (const evt of events) {
+          if (evt.content) { callbacks.onContent(evt.content); }
+          if (evt.reasoningContent && callbacks.onReasoning) { callbacks.onReasoning(evt.reasoningContent); }
+          if (evt.finishReason && callbacks.onFinishReason) { callbacks.onFinishReason(evt.finishReason); }
+        }
+      }
       callbacks.onDone();
     }
   }).catch((err: Error): void => {
