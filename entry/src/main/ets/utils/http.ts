@@ -114,6 +114,11 @@ export function streamPost(
     expectDataType: http.HttpDataType.STRING,
     connectTimeout: 15000,
     readTimeout: 60000
+  }).then((): void => {
+    if (!hasCompleted) {
+      hasCompleted = true;
+      callbacks.onDone();
+    }
   }).catch((err: Error): void => {
     if (!hasCompleted) {
       hasCompleted = true;
