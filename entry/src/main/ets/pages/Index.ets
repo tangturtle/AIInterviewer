@@ -1,5 +1,5 @@
 import { pasteboard } from '@kit.BasicServicesKit';
-import { hasApiKey, getProvider, getApiKey, getModel, saveModel, getTestCache, BUILTIN_ENDPOINTS, DEFAULT_MODELS } from '../utils/PreferencesManager';
+import { hasApiKey, getProvider, getApiKey, getModel, saveModel, getTestCache, saveTestCache, BUILTIN_ENDPOINTS, TestCache } from '../utils/PreferencesManager';
 import { fetchModels, fetchBalance } from '../utils/http';
 
 @Component
@@ -12,7 +12,6 @@ export struct IndexPage {
   @State modelOptions: SelectOption[] = [];
   @State modelIndex: number = 0;
   @State balanceInfo: string = '';
-  @State isExpanded: boolean = false;
   @State connectionStatus: string = '';
   @State statusType: string = ''; // 'success' | 'warning'
   @State private redirectedToSetting: boolean = false;
@@ -119,7 +118,6 @@ export struct IndexPage {
     }
     const key = await getApiKey(ctx);
     if (!key) { return; }
-    const defaultModel = DEFAULT_MODELS[provider] || 'deepseek-v4-flash';
     const models = await fetchModels(key, endpoint);
     if (models.length > 0) {
       this.modelOptions = this.buildModelOptions(models);
@@ -133,6 +131,16 @@ export struct IndexPage {
       const balance = await fetchBalance(key);
       if (balance) { this.balanceInfo = balance; }
     }
+    // 持久化缓存模型列表与余额
+    const modelsArr: string[] = [];
+    for (let i = 0; i < this.modelOptions.length; i++) { modelsArr.push('' + this.modelOptions[i].value); }
+    await saveTestCache(getContext(this), {
+      provider: provider,
+      models: modelsArr,
+      testResult: '已缓存 ' + modelsArr.length + ' 个模型',
+      balance: this.balanceInfo,
+      selectedModel: this.selectedModel
+    });
   }
 
   build() {
