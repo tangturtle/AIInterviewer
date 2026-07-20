@@ -1,5 +1,130 @@
 import { http } from '@kit.NetworkKit';
 
+// ── SSE (Server-Sent Events) 流式输出 ───────────────────────
+
+/** 流式回调接口 */
+export interface StreamCallbacks {
+  /** 每次收到 content delta */
+  onContent: (text: string) => void;
+  /** DeepSeek 思考过程文本（可选） */
+  onReasoning?: (text: string) => void;
+  /** 流结束原因（stop / length） */
+  onFinishReason?: (reason: string) => void;
+  /** 发生错误 */
+  onError: (err: Error) => void;
+  /** 流正常结束 */
+  onDone: () => void;
+}
+
+/**
+ * SSE 数据解析器，处理跨 chunk 边界的行缓冲
+ */
+export class SSESplitter {
+  private buffer: string = '';
+
+  /**
+   * 向解析器喂入原始二进制数据
+   * @param data - onDataReceive 接收的 ArrayBuffer
+   * @returns 解析出的 SSE 事件数组
+   */
+  feed(data: ArrayBuffer): Array<{ content: string; reasoningContent?: string; finishReason?: string }> {
+    const chunk = String.fromCharCode(...new Uint8Array(data));
+    this.buffer += chunk;
+
+    const results: Array<{ content: string; reasoningContent?: string; finishReason?: string }> = [];
+    const parts = this.buffer.split('\n\n');
+
+    // 最后一个部分可能不完整，留在 buffer 中
+    this.buffer = parts.pop() || '';
+
+    for (const part of parts) {
+      for (const line of part.split('\n')) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') { continue; }
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const delta = parsed?.choices?.[0]?.delta;
+            const finishReason = parsed?.choices?.[0]?.finish_reason;
+            if (delta || finishReason) {
+              const evt: { content: string; reasoningContent?: string; finishReason?: string } = { content: '' };
+              if (delta?.content) { evt.content = delta.content; }
+              if (delta?.reasoning_content) { evt.reasoningContent = delta.reasoning_content; }
+              if (finishReason) { evt.finishReason = finishReason; }
+              if (evt.content || evt.reasoningContent || evt.finishReason) {
+                results.push(evt);
+              }
+            }
+          } catch (_err) {
+            // 忽略解析失败的行（可能是跨 chunk 的不完整 JSON）
+          }
+        }
+      }
+    }
+    return results;
+  }
+}
+
+/**
+ * 流式 POST 请求（SSE）
+ * @param url - API 端点
+ * @param body - 请求体（自动添加 stream: true）
+ * @param apiKey - API Key
+ * @param callbacks - 流式回调
+ * @returns HttpRequest 句柄，可调用 destroy() 取消
+ */
+export function streamPost(
+  url: string,
+  body: object,
+  apiKey: string,
+  callbacks: StreamCallbacks
+): http.HttpRequest {
+  const httpRequest = http.createHttp();
+  const splitter = new SSESplitter();
+  let hasError = false;
+
+  httpRequest.on('dataReceive', (data: ArrayBuffer): void => {
+    const events = splitter.feed(data);
+    for (const evt of events) {
+      if (evt.content) { callbacks.onContent(evt.content); }
+      if (evt.reasoningContent && callbacks.onReasoning) { callbacks.onReasoning(evt.reasoningContent); }
+      if (evt.finishReason && callbacks.onFinishReason) { callbacks.onFinishReason(evt.finishReason); }
+    }
+  });
+
+  httpRequest.on('dataEnd', (): void => {
+    if (!hasError) { callbacks.onDone(); }
+  });
+
+  httpRequest.on('dataError', (_error: number): void => {
+    if (!hasError) {
+      hasError = true;
+      callbacks.onError(new Error('SSE 数据接收错误'));
+    }
+  });
+
+  const requestBody = JSON.stringify({ ...body, stream: true });
+
+  httpRequest.request(url, {
+    method: http.RequestMethod.POST,
+    header: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey
+    },
+    extraData: requestBody,
+    expectDataType: http.HttpDataType.STRING,
+    connectTimeout: 15000,
+    readTimeout: 60000
+  }).catch((err: Error): void => {
+    if (!hasError) {
+      hasError = true;
+      callbacks.onError(err);
+    }
+  });
+
+  return httpRequest;
+}
+
 export async function post(url: string, body: object, apiKey: string): Promise<string> {
   const httpRequest = http.createHttp();
   try {

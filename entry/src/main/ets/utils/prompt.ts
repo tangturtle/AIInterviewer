@@ -5,7 +5,7 @@
  * 所有 prompt 使用中文编写，要求 LLM 返回严格 JSON 格式。
  */
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { post } from './http';
+import { post, streamPost, StreamCallbacks } from './http';
 import type {
   ParsedJD, InterviewQuestion, QAPair, InterviewReport
 } from './types';
@@ -45,6 +45,71 @@ export async function callLLM(
     temperature: 0.7
   };
   return await post(endpoint, body, apiKey);
+}
+
+/**
+ * 流式调用 LLM API
+ * @param apiKey - API Key
+ * @param systemPrompt - 系统级提示词
+ * @param userPrompt - 用户级提示词
+ * @param callbacks - 流式回调
+ * @param endpoint - LLM API 端点（可选）
+ * @param model - 模型名（可选）
+ * @returns HttpRequest 句柄，可调用 destroy() 取消
+ */
+export function callLLMStream(
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  callbacks: {
+    onContent: (fullText: string) => void;
+    onReasoning?: (text: string) => void;
+    onComplete: (fullContent: string) => void;
+    onError: (err: Error) => void;
+  },
+  endpoint: string = DEFAULT_ENDPOINT,
+  model: string = DEFAULT_MODEL
+) {
+  let fullText = '';
+
+  const streamCallbacks: StreamCallbacks = {
+    onContent: (delta: string): void => {
+      fullText += delta;
+      callbacks.onContent(fullText);
+    },
+    onReasoning: (text: string): void => {
+      callbacks.onReasoning?.(text);
+    },
+    onError: (err: Error): void => {
+      callbacks.onError(err);
+    },
+    onDone: (): void => {
+      callbacks.onComplete(fullText);
+    }
+  };
+
+  const body = {
+    model: model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.7
+  };
+
+  return streamPost(endpoint, body, apiKey, streamCallbacks);
+}
+
+/**
+ * 将流式累积的 content 重新包裹为 LLM 响应结构，
+ * 供现有 parse*Response() 函数复用
+ * @param content - 流式累积的 choices[0].delta.content 完整文本
+ * @returns 兼容 LLM API 响应的 JSON 字符串
+ */
+export function reconstructResponse(content: string): string {
+  return JSON.stringify({
+    choices: [{ message: { content: content } }]
+  });
 }
 
 // ── Prompt 构建函数 ────────────────────────────────────────
