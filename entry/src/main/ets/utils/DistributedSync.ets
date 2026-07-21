@@ -102,7 +102,7 @@ export async function createDistributedSession(context: Context): Promise<object
     return dataObj;
   } catch (err) {
     const em: string = (err as Error).message;
-    hilog.error(0x0000, 'AIInterviewer', 'createDistributedSession: %{public}s', em);
+    hilog.error(0x0000, 'AIInterviewer', 'createDistributedSession: %{private}s', em);
     return null;
   }
 }
@@ -150,7 +150,7 @@ export function getSyncField(dataObj: object | null, key: string): Object | null
     return (dataObj as Record<string, Object>)[key];
   } catch (err) {
     const em: string = (err as Error).message;
-    hilog.error(0x0000, 'AIInterviewer', 'getSyncField: %{public}s', em);
+    hilog.error(0x0000, 'AIInterviewer', 'getSyncField: %{private}s', em);
     return null;
   }
 }
