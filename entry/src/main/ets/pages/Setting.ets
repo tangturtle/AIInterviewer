@@ -163,6 +163,11 @@ export struct SettingPage {
       } catch (err) {
         hilog.error(0x0000, 'AIInterviewer', 'Setting: perm check error=%{public}s',
           (err as Error).message);
+        this.distributedEnabled = false;
+        await saveDistributedEnabled(ctx, false);
+        this.distributedOnline = false;
+        this.distributedChecking = false;
+        return;
       }
       // 权限 OK — 创建分布式 session
       this.distributedChecking = true;
