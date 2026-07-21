@@ -122,6 +122,24 @@ export function onRemoteDataChange(dataObj: object, callback: (dataObj: object) 
 }
 
 /**
+ * 清理分布式 Session，解除事件监听
+ * 在页面 aboutToDisappear 中调用
+ */
+export function cleanupDistributedSession(dataObj: object | null): void {
+  if (!dataObj) { return; }
+  try {
+    const dobj: Record<string, Object> = dataObj as Record<string, Object>;
+    (dobj['off'] as Function)('status');
+    (dobj['off'] as Function)('change');
+  } catch (err) {
+    const em: string = (err as Error).message;
+    hilog.error(0x0000, 'AIInterviewer', 'cleanupDistributedSession: %{private}s', em);
+  }
+  _statusCallback = null;
+  _changeCallback = null;
+}
+
+/**
  * 增量更新分布式对象字段
  * @param dataObj - createDistributedSession 返回的句柄
  * @param key - 字段名（仅允许 SYNC_ALLOWED_KEYS）

@@ -1,6 +1,6 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getApiKey, getModel } from '../utils/PreferencesManager';
-import { getDistributedEnabled, createDistributedSession, updateSyncField, onSessionStatusChange } from '../utils/DistributedSync';
+import { getDistributedEnabled, createDistributedSession, updateSyncField, onSessionStatusChange, cleanupDistributedSession } from '../utils/DistributedSync';
 import {
   buildJDPrompt, parseJDResponse,
   buildQuestionPrompt, parseQuestionResponse,
@@ -53,6 +53,7 @@ export struct InterviewPage {
   }
 
   aboutToDisappear(): void {
+    cleanupDistributedSession(this.distributedObj);
     this.distributedObj = null;
   }
 
