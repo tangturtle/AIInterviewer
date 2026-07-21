@@ -66,6 +66,7 @@ entry/src/main/ets/
     │                         # saveModel/getModel, saveTestCache/getTestCache/clearTestCache,
     │                         # BUILTIN_ENDPOINTS/DEFAULT_MODELS/DEFAULT_PROVIDER/TestCache 常量+接口
     ├── http.ts             # post, testConnection, fetchModels, fetchBalance
+    ├── DistributedSync.ets # 分布式数据对象：createDistributedSession, updateSyncField, watchSyncChanges
     └── prompt.ts           # callLLM, buildJDPrompt/parseJDResponse, buildQuestionPrompt/parseQuestionResponse,
                           # buildFollowUpPrompt/parseFollowUpResponse, buildReportPrompt/parseReportResponse
 ```
@@ -79,7 +80,7 @@ entry/src/main/ets/
 | DeepSeek/OpenAI 双供应商 | ✅ 已实现 |
 | 连通性测试 + 模型列表拉取 + 余额查询 + TestCache 缓存 | ✅ 已实现 |
 | 流式输出（LLM 边收边渲染） | ❌ 不实现 — `on('dataReceive')` 对 SSE 不触发，Promise 兜底 |
-| 分布式数据对象（手机→平板同步） | 🔄 Phase 3 |
+| 分布式数据对象（手机→平板同步） | ✅ 基础实现 |
 | 元服务卡片 | 🔄 Phase 4 |
 
 ## 路由设计

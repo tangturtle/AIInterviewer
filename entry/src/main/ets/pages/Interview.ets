@@ -1,5 +1,6 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getApiKey, getModel } from '../utils/PreferencesManager';
+import { getDistributedEnabled, createDistributedSession, updateSyncField } from '../utils/DistributedSync';
 import {
   buildJDPrompt, parseJDResponse,
   buildQuestionPrompt, parseQuestionResponse,
@@ -29,6 +30,8 @@ export struct InterviewPage {
 
   private apiKey: string = '';
   private modelName: string = '';
+  private distributedObj: object | null = null;
+  private distributedEnabled: boolean = false;
 
   private readonly roundLabels: string[] = ['技术基础', '项目深度', '综合评估'];
   private readonly roundDescriptions: string[] = [
@@ -109,6 +112,16 @@ export struct InterviewPage {
       this.pageState = 'error';
       return;
     }
+    // 初始化分布式同步
+    const ctx = getContext(this);
+    this.distributedEnabled = await getDistributedEnabled(ctx);
+    if (this.distributedEnabled) {
+      this.distributedObj = await createDistributedSession(ctx);
+      if (this.distributedObj) {
+        updateSyncField(this.distributedObj, 'pageState', this.pageState);
+        updateSyncField(this.distributedObj, 'jdText', this.jdText);
+      }
+    }
     await this.parseJD();
   }
 
@@ -124,6 +137,7 @@ export struct InterviewPage {
         throw new Error('JD解析失败');
       }
       this.parsedJD = jd;
+      this.syncInterviewState();
       await this.generateQuestion();
     });
   }
@@ -144,6 +158,7 @@ export struct InterviewPage {
       this.currentQuestion = q;
       this.currentAnswer = '';
       this.pageState = 'awaiting_answer';
+      this.syncInterviewState();
     });
   }
 
@@ -225,6 +240,10 @@ export struct InterviewPage {
         throw new Error('报告解析失败');
       }
       const reportParam: Record<string, Object> = { 'reportJson': JSON.stringify(report) };
+      if (this.distributedObj) {
+        updateSyncField(this.distributedObj, 'reportJson', JSON.stringify(report));
+        updateSyncField(this.distributedObj, 'pageState', 'report_ready');
+      }
       const reportPath: NavPathInfo = { name: 'Report', param: reportParam };
       this.navStack.replacePath(reportPath);
     });
@@ -255,6 +274,12 @@ export struct InterviewPage {
         });
       }
     }
+  }
+
+  private syncInterviewState(): void {
+    if (!this.distributedObj) { return; }
+    updateSyncField(this.distributedObj, 'currentRound', this.currentRound);
+    updateSyncField(this.distributedObj, 'pageState', this.pageState);
   }
 
   private goBack(): void {
