@@ -49,6 +49,7 @@ export interface InterviewSyncData {
 
 /** 分布式开关 — 保存 */
 export async function saveDistributedEnabled(context: Context, enabled: boolean): Promise<void> {
+  hilog.info(0x0000, 'AIInterviewer', 'dist: saveDistributedEnabled %{public}s', enabled.toString());
   const store = await getPref(context);
   await store.put(KEY_DISTRIBUTED_ENABLED, enabled);
   await store.flush();
@@ -57,7 +58,9 @@ export async function saveDistributedEnabled(context: Context, enabled: boolean)
 /** 分布式开关 — 读取 */
 export async function getDistributedEnabled(context: Context): Promise<boolean> {
   const store = await getPref(context);
-  return (await store.get(KEY_DISTRIBUTED_ENABLED, false)) as boolean;
+  const val: boolean = (await store.get(KEY_DISTRIBUTED_ENABLED, false)) as boolean;
+  hilog.info(0x0000, 'AIInterviewer', 'dist: getDistributedEnabled %{public}s', val.toString());
+  return val;
 }
 
 /**
@@ -72,6 +75,7 @@ export async function getDistributedEnabled(context: Context): Promise<boolean> 
  * @returns 分布式对象句柄，失败返回 null
  */
 export async function createDistributedSession(context: Context): Promise<object | null> {
+  hilog.info(0x0000, 'AIInterviewer', 'dist: createDistributedSession start');
   try {
     const dataObj: object = distributedDataObject.create(context, {
       currentRound: 0,
@@ -84,21 +88,27 @@ export async function createDistributedSession(context: Context): Promise<object
 
     // 绑定 sessionId — 同 ID 的设备自动互通
     (dobj['setSessionId'] as Function)(SESSION_ID);
+    hilog.info(0x0000, 'AIInterviewer', 'dist: session created, sessionId=%{public}s', SESSION_ID);
 
     // 监听对端上下线
     (dobj['on'] as Function)('status', (statusData: object): void => {
+      hilog.info(0x0000, 'AIInterviewer', 'dist: status event raw %{public}s', JSON.stringify(statusData));
       const sd: Record<string, Object> = statusData as Record<string, Object>;
       const status: string = sd['status'] as string;
       const online: boolean = status === 'online';
       _online = online;
       const _status: string = online ? '已连接' : '已断开';
+      hilog.info(0x0000, 'AIInterviewer', 'dist: status parsed online=%{public}s text=%{public}s', online.toString(), _status);
       if (_statusCallback) { _statusCallback(_status); }
     });
 
     // 监听远端数据变更 — 用 _data 而非闭包捕获的 dataObj
     (dobj['on'] as Function)('change', (_data: object): void => {
+      hilog.info(0x0000, 'AIInterviewer', 'dist: change event received');
       if (_changeCallback) { _changeCallback(_data); }
     });
+
+    hilog.info(0x0000, 'AIInterviewer', 'dist: createDistributedSession success');
 
     return dataObj;
   } catch (err) {
@@ -133,6 +143,7 @@ export function onRemoteDataChange(dataObj: object, callback: (dataObj: object) 
  * 在页面 aboutToDisappear 中调用
  */
 export function cleanupDistributedSession(dataObj: object | null): void {
+  hilog.info(0x0000, 'AIInterviewer', 'dist: cleanupDistributedSession called');
   if (!dataObj) { return; }
   try {
     const dobj: Record<string, Object> = dataObj as Record<string, Object>;

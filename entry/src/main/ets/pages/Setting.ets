@@ -1,6 +1,7 @@
 import { getApiKey, saveApiKey, saveProvider, getProvider, saveModel, getModel, saveTestCache, getTestCache, clearTestCache, BUILTIN_ENDPOINTS, DEFAULT_PROVIDER, DEFAULT_MODELS, TestCache } from '../utils/PreferencesManager';
 import { testConnection, fetchModels, fetchBalance } from '../utils/http';
 import { getDistributedEnabled, saveDistributedEnabled, createDistributedSession, cleanupDistributedSession, onSessionStatusChange, getSessionOnline } from '../utils/DistributedSync';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 
 @Component
 export struct SettingPage {
@@ -68,6 +69,7 @@ export struct SettingPage {
 
       // 读取分布式开关状态
       this.distributedEnabled = await getDistributedEnabled(ctx);
+      hilog.info(0x0000, 'AIInterviewer', 'Setting: aboutToAppear distributedEnabled=%{public}s', this.distributedEnabled.toString());
     } finally {
       this.isLoadingKey = false;
     }
@@ -127,6 +129,7 @@ export struct SettingPage {
   }
 
   private async toggleDistributed(checked: boolean): Promise<void> {
+    hilog.info(0x0000, 'AIInterviewer', 'Setting: toggleDistributed checked=%{public}s', checked.toString());
     const ctx = getContext(this);
     await saveDistributedEnabled(ctx, checked);
     this.distributedEnabled = checked;
@@ -134,8 +137,10 @@ export struct SettingPage {
       this.distributedChecking = true;
       this.distributedSession = await createDistributedSession(ctx);
       this.distributedChecking = false;
+      hilog.info(0x0000, 'AIInterviewer', 'Setting: sessionCreated=%{public}s', (this.distributedSession !== null).toString());
       if (this.distributedSession) {
         onSessionStatusChange((status: string): void => {
+          hilog.info(0x0000, 'AIInterviewer', 'Setting: statusCallback status=%{public}s', status);
           this.distributedOnline = status === '已连接';
         });
       } else {
