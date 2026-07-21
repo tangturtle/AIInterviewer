@@ -121,7 +121,7 @@ git clone https://github.com/tangturtle/AIInterviewer.git
 | Navigation 迁移 | ✅ | router → NavPathStack 已迁移 |
 | 元服务卡片 | ❌ | 规划中 |
 | 分布式数据对象 | ❌ | 规划中（手机→平板同步） |
-| 流式输出 | ❌ | 规划中 |
+| SSE 流式输出 | ❌ | 不实现 — `on('dataReceive')` 对 SSE 不触发，已用 Promise 兜底解析 |
 
 ---
 

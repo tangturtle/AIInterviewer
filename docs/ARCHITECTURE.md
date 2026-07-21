@@ -78,7 +78,7 @@ entry/src/main/ets/
 | utils 层全部 4 个模块 | ✅ 已实现 |
 | DeepSeek/OpenAI 双供应商 | ✅ 已实现 |
 | 连通性测试 + 模型列表拉取 + 余额查询 + TestCache 缓存 | ✅ 已实现 |
-| 流式输出（LLM 边收边渲染） | 🔄 Phase 3 |
+| 流式输出（LLM 边收边渲染） | ❌ 不实现 — `on('dataReceive')` 对 SSE 不触发，Promise 兜底 |
 | 分布式数据对象（手机→平板同步） | 🔄 Phase 3 |
 | 元服务卡片 | 🔄 Phase 4 |
 

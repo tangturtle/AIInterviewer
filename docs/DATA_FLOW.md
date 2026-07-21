@@ -209,18 +209,11 @@ flowchart TD
 
 ## 6. 性能与鸿蒙特性规划
 
-### 流式输出（Phase 3 规划）
+### SSE 流式输出（已评估，不实现）
 
-长 LLM 响应使用 `@ohos.net.http` 的 `on('dataReceive')` 事件逐步渲染：
+经实测，`@ohos.net.http` 的 `on('dataReceive')` 回调对 SSE（`text/event-stream` Content-Type + chunked transfer）响应**不触发**。`http.ts` 的 `streamPost()` 已实现 Promise 兜底方案：请求完成后从 `resp.result` 获取完整 SSE 响应体，通过 `SSESplitter.feedText()` 一次性解析所有 content delta。
 
-```typescript
-// 伪代码 — 实现时参考
-const request = http.createHttp();
-request.on('dataReceive', (data: ArrayBuffer) => {
-  this.streamingText += decoder.decode(data);
-});
-request.request(url, { method: http.RequestMethod.POST, ... });
-```
+如需真正的增量流式渲染，唯一的路径是使用 `@ohos.net.socket` 手动建立 TCP 连接并逐字节解析 SSE — 当前优先级不匹配，决定不实现。
 
 ### 分布式数据对象（Phase 3 规划）
 
