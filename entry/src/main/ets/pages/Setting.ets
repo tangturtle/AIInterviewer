@@ -194,6 +194,9 @@ export struct SettingPage {
     if (!this.distributedEnabled) { return '已禁用'; }
     if (this.distributedChecking) { return '检测中...'; }
     if (this.distributedOnline) { return '对端在线'; }
+    if (this.distributedSession !== null) {
+      return '未检测到对端设备（需同账号同网络）';
+    }
     return '未检测到对端设备';
   }
 

@@ -113,7 +113,10 @@ export async function createDistributedSession(context: Context): Promise<object
     return dataObj;
   } catch (err) {
     const em: string = (err as Error).message;
-    hilog.error(0x0000, 'AIInterviewer', 'createDistributedSession: %{private}s', em);
+    hilog.error(0x0000, 'AIInterviewer', 'createDistributedSession: %{public}s', em);
+    if (em.indexOf('already created') >= 0 || em.indexOf('same sessionId') >= 0 || em.indexOf('1652') >= 0) {
+      hilog.warn(0x0000, 'AIInterviewer', 'dist: duplicate sessionId — old session may not be released. Try cleanupDistributedSession first.');
+    }
     return null;
   }
 }
@@ -147,6 +150,13 @@ export function cleanupDistributedSession(dataObj: object | null): void {
   if (!dataObj) { return; }
   try {
     const dobj: Record<string, Object> = dataObj as Record<string, Object>;
+    // 尝试释放 session 关联，避免再次创建时报 err 1652（same sessionId）
+    try {
+      (dobj['setSessionId'] as Function)('');
+      hilog.info(0x0000, 'AIInterviewer', 'dist: session released via setSessionId empty');
+    } catch (_e) {
+      hilog.info(0x0000, 'AIInterviewer', 'dist: setSessionId empty not supported, relying on GC');
+    }
     (dobj['off'] as Function)('status');
     (dobj['off'] as Function)('change');
   } catch (err) {
