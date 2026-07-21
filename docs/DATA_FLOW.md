@@ -215,15 +215,19 @@ flowchart TD
 
 如需真正的增量流式渲染，唯一的路径是使用 `@ohos.net.socket` 手动建立 TCP 连接并逐字节解析 SSE — 当前优先级不匹配，决定不实现。
 
-### 分布式数据对象（Phase 3 规划）
+### 分布式数据对象（Phase 3 — 已实现）
 
-面试进度可通过 `@ohos.data.distributedDataObject` 在手机和平板间同步：
+面试进度通过 `@ohos.data.distributedDataObject` 在手机和平板间同步：
 
-```typescript
-// 伪代码
-import { distributedDataObject } from '@kit.ArkData';
-const session = distributedDataObject.create(this.context, {
-  currentRound: 0,
-  qaHistory: []
-});
-```
+**数据载荷（`InterviewSyncData`）**：
+- `currentRound: number` — 当前面试轮次
+- `pageState: string` — 页面状态（`jd_parsed` / `question_ready` / `awaiting_answer` / `report_ready`）
+- `jdText: string` — JD 文本（初始启动后同步）
+- `reportJson: string` — 评分报告 JSON（面试完成后同步）
+
+**同步流程**：
+1. **主设备（Interview 页）**：`aboutToAppear` 时检查 `DistributedEnabled` 开关，若开启则 `createDistributedSession()汇总`，在 JD 解析/出题/页面状态变更/报告生成各节点调用 `updateSyncField()` 写入
+2. **副设备（平板）**：通过 `getSyncField()` 实时读取当前状态，实现进度同步
+3. **清理**：Interview 页 `aboutToDisappear` 时释放 `distributedObj` 引用
+
+**开关控制**：`saveDistributedEnabled(context, true/false)` / `getDistributedEnabled(context)`，默认关闭，通过 Preferences 持久化。
