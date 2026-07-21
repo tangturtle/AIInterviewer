@@ -20,6 +20,7 @@
  *     });
  *   }
  */
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import distributedDataObject from '@ohos.data.distributedDataObject';
 import { preferences } from '@kit.ArkData';
 
@@ -93,14 +94,15 @@ export async function createDistributedSession(context: Context): Promise<object
       if (_statusCallback) { _statusCallback(_status); }
     });
 
-    // 监听远端数据变更
+    // 监听远端数据变更 — 用 _data 而非闭包捕获的 dataObj
     (dobj['on'] as Function)('change', (_data: object): void => {
-      if (_changeCallback) { _changeCallback(dataObj); }
+      if (_changeCallback) { _changeCallback(_data); }
     });
 
     return dataObj;
   } catch (err) {
     const em: string = (err as Error).message;
+    hilog.error(0x0000, 'AIInterviewer', 'createDistributedSession: %{public}s', em);
     return null;
   }
 }
@@ -148,6 +150,7 @@ export function getSyncField(dataObj: object | null, key: string): Object | null
     return (dataObj as Record<string, Object>)[key];
   } catch (err) {
     const em: string = (err as Error).message;
+    hilog.error(0x0000, 'AIInterviewer', 'getSyncField: %{public}s', em);
     return null;
   }
 }
