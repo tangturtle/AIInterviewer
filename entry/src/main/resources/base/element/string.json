@@ -187,6 +187,10 @@
     {
       "name": "read_pasteboard_reason",
       "value": "用于粘贴职位描述文本"
+    },
+    {
+      "name": "distributed_sync_reason",
+      "value": "用于在手机和平板间同步面试进度"
     }
   ]
 }

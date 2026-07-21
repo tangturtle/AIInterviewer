@@ -2,6 +2,7 @@ import { getApiKey, saveApiKey, saveProvider, getProvider, saveModel, getModel, 
 import { testConnection, fetchModels, fetchBalance } from '../utils/http';
 import { getDistributedEnabled, saveDistributedEnabled, createDistributedSession, cleanupDistributedSession, onSessionStatusChange, getSessionOnline } from '../utils/DistributedSync';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { abilityAccessCtrl, bundleManager } from '@kit.AbilityKit';
 
 @Component
 export struct SettingPage {
@@ -134,10 +135,41 @@ export struct SettingPage {
     await saveDistributedEnabled(ctx, checked);
     this.distributedEnabled = checked;
     if (checked) {
+      // 检查分布式数据同步权限（user_grant，需运行时请求）
+      const atManager = abilityAccessCtrl.createAtManager();
+      const bundleInfo = await bundleManager.getBundleInfoForSelf(
+        bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
+      const tokenId = bundleInfo.appInfo.accessTokenId;
+      try {
+        const grantStatus = await atManager.checkAccessToken(tokenId,
+          'ohos.permission.DISTRIBUTED_DATASYNC');
+        hilog.info(0x0000, 'AIInterviewer',
+          'Setting: perm check status=%{public}s', JSON.stringify(grantStatus));
+        if (grantStatus !== abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+          // 请求权限
+          const result = await atManager.requestPermissionsFromUser(ctx,
+            ['ohos.permission.DISTRIBUTED_DATASYNC']);
+          hilog.info(0x0000, 'AIInterviewer',
+            'Setting: perm request result=%{public}s', JSON.stringify(result));
+          if (result.authResults[0] !== 0) {
+            // 用户拒绝 — 回退开关
+            this.distributedEnabled = false;
+            await saveDistributedEnabled(ctx, false);
+            this.distributedOnline = false;
+            this.distributedChecking = false;
+            return;
+          }
+        }
+      } catch (err) {
+        hilog.error(0x0000, 'AIInterviewer', 'Setting: perm check error=%{public}s',
+          (err as Error).message);
+      }
+      // 权限 OK — 创建分布式 session
       this.distributedChecking = true;
       this.distributedSession = await createDistributedSession(ctx);
       this.distributedChecking = false;
-      hilog.info(0x0000, 'AIInterviewer', 'Setting: sessionCreated=%{public}s', (this.distributedSession !== null).toString());
+      hilog.info(0x0000, 'AIInterviewer', 'Setting: sessionCreated=%{public}s',
+        (this.distributedSession !== null).toString());
       if (this.distributedSession) {
         onSessionStatusChange((status: string): void => {
           hilog.info(0x0000, 'AIInterviewer', 'Setting: statusCallback status=%{public}s', status);
