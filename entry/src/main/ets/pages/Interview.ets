@@ -1,6 +1,6 @@
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getApiKey, getModel } from '../utils/PreferencesManager';
-import { getDistributedEnabled, createDistributedSession, updateSyncField } from '../utils/DistributedSync';
+import { getDistributedEnabled, createDistributedSession, updateSyncField, onSessionStatusChange } from '../utils/DistributedSync';
 import {
   buildJDPrompt, parseJDResponse,
   buildQuestionPrompt, parseQuestionResponse,
@@ -32,6 +32,7 @@ export struct InterviewPage {
   private modelName: string = '';
   private distributedObj: object | null = null;
   private distributedEnabled: boolean = false;
+  private distributedStatus: string = '';
 
   private readonly roundLabels: string[] = ['技术基础', '项目深度', '综合评估'];
   private readonly roundDescriptions: string[] = [
@@ -125,6 +126,11 @@ export struct InterviewPage {
         updateSyncField(this.distributedObj, 'pageState', this.pageState);
         updateSyncField(this.distributedObj, 'jdText', this.jdText);
       }
+    }
+    if (this.distributedEnabled) {
+      onSessionStatusChange((status: string): void => {
+        this.distributedStatus = status;
+      });
     }
     await this.parseJD();
   }
@@ -298,6 +304,19 @@ export struct InterviewPage {
 
   build() {
     NavDestination() {
+      if (this.distributedStatus !== '') {
+        Row() {
+          Text(this.distributedStatus)
+            .fontSize(10).fontColor($r('app.color.text_tip'))
+            .padding({ left: 4, right: 4 })
+          Circle()
+            .width(6).height(6)
+            .fill(this.distributedStatus === '已连接' ? '#4CAF50' : '#999999')
+        }
+        .borderRadius(4)
+        .backgroundColor($r('app.color.card_background_light'))
+        .position({ x: 8, y: 8 })
+      }
       Column() {
         if (this.pageState === 'loading_jd' || this.pageState === 'loading_question' ||
             this.pageState === 'loading_followup' || this.pageState === 'loading_report') {
