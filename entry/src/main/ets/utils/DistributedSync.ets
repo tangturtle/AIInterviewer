@@ -55,7 +55,6 @@ export async function createDistributedSession(context: Context): Promise<object
     return dataObj;
   } catch (err) {
     const em = (err as Error).message;
-    if (em.length > 0) { return null; }
     return null;
   }
 }
@@ -69,7 +68,7 @@ export function updateSyncField(dataObj: object | null, key: string, value: Obje
     (dataObj as Record<string, Object>)[key] = value;
   } catch (err) {
     const em = (err as Error).message;
-    if (em.length > 0) { /* 静默失败 */ }
+
   }
 }
 
@@ -82,7 +81,6 @@ export function getSyncField(dataObj: object | null, key: string): Object | null
     return (dataObj as Record<string, Object>)[key];
   } catch (err) {
     const em = (err as Error).message;
-    if (em.length > 0) { return null; }
     return null;
   }
 }

@@ -51,6 +51,10 @@ export struct InterviewPage {
     this.startInterviewFlow();
   }
 
+  aboutToDisappear(): void {
+    this.distributedObj = null;
+  }
+
   private getQuestionTypeBgColor(): Resource {
     if (this.currentQuestion === null) {
       return $r('app.color.badge_technical_bg');

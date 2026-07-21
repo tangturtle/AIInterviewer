@@ -66,7 +66,7 @@ entry/src/main/ets/
     │                         # saveModel/getModel, saveTestCache/getTestCache/clearTestCache,
     │                         # BUILTIN_ENDPOINTS/DEFAULT_MODELS/DEFAULT_PROVIDER/TestCache 常量+接口
     ├── http.ts             # post, testConnection, fetchModels, fetchBalance
-    ├── DistributedSync.ets # 分布式数据对象：createDistributedSession, updateSyncField, watchSyncChanges
+    ├── DistributedSync.ets # 分布式数据对象：createDistributedSession, updateSyncField,
     └── prompt.ts           # callLLM, buildJDPrompt/parseJDResponse, buildQuestionPrompt/parseQuestionResponse,
                           # buildFollowUpPrompt/parseFollowUpResponse, buildReportPrompt/parseReportResponse
 ```
