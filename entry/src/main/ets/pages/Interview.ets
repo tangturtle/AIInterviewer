@@ -1,4 +1,3 @@
-import { http } from '@kit.NetworkKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { getApiKey, getModel } from '../utils/PreferencesManager';
 import {
@@ -7,7 +6,7 @@ import {
   buildFollowUpPrompt,
   buildReportPrompt, parseReportResponse,
   parseFollowUpResponse,
-  callLLMStream, reconstructResponse
+  callLLM
 } from '../utils/prompt';
 import type { ParsedJD, InterviewQuestion, QAPair, InterviewReport, FollowUpItem } from '../utils/types';
 
@@ -27,11 +26,6 @@ export struct InterviewPage {
   @State qaHistory: QAPair[] = [];
   @State errorMessage: string = '';
   @State retryCount: number = 0;
-  @State streamingText: string = '';
-  @State streamingReasoning: string = '';
-  @State cursorVisible: boolean = true;
-  private currentStreamRequest: http.HttpRequest | null = null;
-  private cursorTimer: number = -1;
 
   private apiKey: string = '';
   private modelName: string = '';
@@ -52,43 +46,6 @@ export struct InterviewPage {
     }
     this.jdText = jdTextParam as string;
     this.startInterviewFlow();
-  }
-
-  aboutToDisappear(): void {
-    this.destroyCurrentStream();
-    if (this.cursorTimer >= 0) {
-      clearInterval(this.cursorTimer);
-      this.cursorTimer = -1;
-    }
-  }
-
-  private startCursorBlink(): void {
-    if (this.cursorTimer >= 0) { clearInterval(this.cursorTimer); }
-    this.cursorVisible = true;
-    this.cursorTimer = setInterval((): void => {
-      this.cursorVisible = !this.cursorVisible;
-    }, 530);
-  }
-
-  private stopCursorBlink(): void {
-    if (this.cursorTimer >= 0) {
-      clearInterval(this.cursorTimer);
-      this.cursorTimer = -1;
-    }
-    this.cursorVisible = false;
-  }
-
-  private destroyCurrentStream(): void {
-    if (this.currentStreamRequest) {
-      try { this.currentStreamRequest.destroy(); } catch (_e) { /* ignore */ }
-      this.currentStreamRequest = null;
-    }
-  }
-
-  private clearStreamState(): void {
-    this.streamingText = '';
-    this.streamingReasoning = '';
-    this.stopCursorBlink();
   }
 
   private getQuestionTypeBgColor(): Resource {
@@ -158,28 +115,11 @@ export struct InterviewPage {
   private async parseJD(): Promise<void> {
     this.pageState = 'loading_jd';
     this.retryCount = 0;
-    this.clearStreamState();
-    const D = 0x0000;
-    hilog.info(D, 'AIInterviewer', 'parseJD: 发送流式LLM请求');
-    await this.streamCall(async () => {
-      const streamHandle = callLLMStream(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText), {
-        onContent: (text: string): void => {
-          this.pageState = 'streaming';
-          this.streamingText = text;
-          this.startCursorBlink();
-        },
-        onReasoning: (text: string): void => {
-          this.streamingReasoning = text;
-        }
-      }, undefined, this.modelName);
-      this.currentStreamRequest = streamHandle.request;
-      const fullContent = await streamHandle.result;
-      this.stopCursorBlink();
-      const D2 = 0x0000;
-      hilog.info(D2, 'AIInterviewer', 'parseJD: 收到 %d 字节', fullContent.length);
-      hilog.info(D2, 'AIInterviewer', 'parseJD: 前100=%{public}s', fullContent.substring(0, 100));
-      const wrapped = reconstructResponse(fullContent);
-      const jd = parseJDResponse(wrapped);
+    await this.callWithRetry(async () => {
+      const D = 0x0000;
+      hilog.info(D, 'AIInterviewer', 'parseJD: 发送LLM请求');
+      const raw = await callLLM(this.apiKey, '你是一个专业的职位解析助手。', buildJDPrompt(this.jdText), undefined, this.modelName);
+      const jd = parseJDResponse(raw);
       if (jd === null) {
         throw new Error('JD解析失败');
       }
@@ -191,25 +131,13 @@ export struct InterviewPage {
   private async generateQuestion(): Promise<void> {
     this.pageState = 'loading_question';
     this.retryCount = 0;
-    this.clearStreamState();
-    if (this.parsedJD === null) { return; }
-    await this.streamCall(async () => {
-      const streamHandle2 = callLLMStream(this.apiKey, '你是一个专业的面试官。',
-        buildQuestionPrompt(this.parsedJD!, this.currentRound), {
-        onContent: (text: string): void => {
-          this.pageState = 'streaming';
-          this.streamingText = text;
-          this.startCursorBlink();
-        },
-        onReasoning: (text: string): void => {
-          this.streamingReasoning = text;
-        }
-      }, undefined, this.modelName);
-      this.currentStreamRequest = streamHandle2.request;
-      const fullContent = await streamHandle2.result;
-      this.stopCursorBlink();
-      const wrapped = reconstructResponse(fullContent);
-      const q = parseQuestionResponse(wrapped);
+    await this.callWithRetry(async () => {
+      if (this.parsedJD === null) {
+        throw new Error('JD 未解析');
+      }
+      const raw = await callLLM(this.apiKey, '你是一个专业的面试官。',
+        buildQuestionPrompt(this.parsedJD, this.currentRound), undefined, this.modelName);
+      const q = parseQuestionResponse(raw);
       if (q === null) {
         throw new Error('题目解析失败');
       }
@@ -230,27 +158,18 @@ export struct InterviewPage {
   private async generateFollowUp(): Promise<void> {
     this.pageState = 'loading_followup';
     this.retryCount = 0;
-    this.clearStreamState();
-    if (this.currentQuestion === null) { return; }
-    await this.streamCall(async () => {
-      const streamHandle3 = callLLMStream(this.apiKey, '你是一个专业的面试官。',
-        buildFollowUpPrompt(this.currentQuestion!, this.currentAnswer, this.qaHistory), {
-        onContent: (text: string): void => {
-          this.pageState = 'streaming';
-          this.streamingText = text;
-          this.startCursorBlink();
-        },
-        onReasoning: (text: string): void => {
-          this.streamingReasoning = text;
-        }
-      }, undefined, this.modelName);
-      this.currentStreamRequest = streamHandle3.request;
-      const fullContent = await streamHandle3.result;
-      this.stopCursorBlink();
-      const wrapped = reconstructResponse(fullContent);
-      const parsed = parseFollowUpResponse(wrapped);
-      if (parsed === null || parsed.length === 0) {
+    await this.callWithRetry(async () => {
+      if (this.currentQuestion === null) {
+        throw new Error('无当前题目');
+      }
+      const rawFollowUp = await callLLM(this.apiKey, '你是一个专业的面试官。',
+        buildFollowUpPrompt(this.currentQuestion, this.currentAnswer, this.qaHistory), undefined, this.modelName);
+      if (!rawFollowUp || rawFollowUp.length === 0) {
         throw new Error('追问生成失败');
+      }
+      const parsed = parseFollowUpResponse(rawFollowUp);
+      if (parsed === null) {
+        throw new Error('追问解析失败');
       }
       this.followUpQuestion = parsed;
       this.followUpAnswer = '';
@@ -295,27 +214,15 @@ export struct InterviewPage {
   private async generateReport(): Promise<void> {
     this.pageState = 'loading_report';
     this.retryCount = 0;
-    this.clearStreamState();
-    if (this.parsedJD === null) { return; }
-    await this.streamCall(async () => {
-      const streamHandle4 = callLLMStream(this.apiKey, '你是一个专业的面试评估专家。',
-        buildReportPrompt(this.qaHistory, this.parsedJD!), {
-        onContent: (text: string): void => {
-          this.pageState = 'streaming';
-          this.streamingText = text;
-          this.startCursorBlink();
-        },
-        onReasoning: (text: string): void => {
-          this.streamingReasoning = text;
-        }
-      }, undefined, this.modelName);
-      this.currentStreamRequest = streamHandle4.request;
-      const fullContent = await streamHandle4.result;
-      this.stopCursorBlink();
-      const wrapped = reconstructResponse(fullContent);
-      const report = parseReportResponse(wrapped);
+    await this.callWithRetry(async () => {
+      if (this.parsedJD === null) {
+        throw new Error('JD 未解析');
+      }
+      const raw = await callLLM(this.apiKey, '你是一个专业的面试评估专家。',
+        buildReportPrompt(this.qaHistory, this.parsedJD), undefined, this.modelName);
+      const report = parseReportResponse(raw);
       if (report === null) {
-        throw new Error('报告生成失败');
+        throw new Error('报告解析失败');
       }
       const reportParam: Record<string, Object> = { 'reportJson': JSON.stringify(report) };
       const reportPath: NavPathInfo = { name: 'Report', param: reportParam };
@@ -323,13 +230,12 @@ export struct InterviewPage {
     });
   }
 
-  private async streamCall(fn: () => Promise<void>): Promise<void> {
+  private async callWithRetry(fn: () => Promise<void>): Promise<void> {
     while (this.retryCount < 3) {
       try {
         await fn();
         return;
       } catch (err) {
-        this.destroyCurrentStream();
         this.retryCount++;
         if (this.retryCount >= 3) {
           this.errorMessage = '请求失败，请检查网络连接和 API Key 是否正确';
@@ -338,7 +244,7 @@ export struct InterviewPage {
           if (errMsg.includes('timeout') || errMsg.includes('Timeout') || errMsg.includes('28')) {
             this.errorMessage = '网络请求超时，请检查网络连接或更换 API 端点';
           }
-          hilog.error(D, 'AIInterviewer', 'streamCall: 3次失败, error=%{public}s', errMsg);
+          hilog.error(D, 'AIInterviewer', 'callWithRetry: 3次失败, error=%{public}s', errMsg);
           this.pageState = 'error';
           return;
         }
@@ -352,12 +258,10 @@ export struct InterviewPage {
   }
 
   private goBack(): void {
-    this.destroyCurrentStream();
     this.navStack.pop();
   }
 
   private retry(): void {
-    this.destroyCurrentStream();
     this.retryCount = 0;
     this.pageState = 'loading_jd';
     this.parseJD();
@@ -369,8 +273,6 @@ export struct InterviewPage {
         if (this.pageState === 'loading_jd' || this.pageState === 'loading_question' ||
             this.pageState === 'loading_followup' || this.pageState === 'loading_report') {
           this.LoadingView();
-        } else if (this.pageState === 'streaming') {
-          this.StreamingView();
         } else if (this.pageState === 'awaiting_answer' && this.currentQuestion !== null) {
           this.QuestionView();
         } else if (this.pageState === 'awaiting_followup_answer') {
@@ -431,63 +333,6 @@ export struct InterviewPage {
       return '正在生成评估报告...';
     }
     return '加载中...';
-  }
-
-  @Builder
-  StreamingView(): void {
-    Scroll() {
-      Column() {
-        if (this.streamingReasoning.length > 0) {
-          Text('💭 ' + this.streamingReasoning)
-            .fontSize(12)
-            .fontColor($r('app.color.text_tip'))
-            .backgroundColor($r('app.color.card_background_light'))
-            .padding(12)
-            .borderRadius(8)
-            .width('100%')
-            .lineHeight(20)
-            .margin({ bottom: 16 });
-        }
-
-        Column() {
-          Text(this.streamingText)
-            .fontSize(16)
-            .fontColor($r('app.color.text_primary'))
-            .lineHeight(26)
-            .width('100%');
-
-          if (this.streamingText.length > 0) {
-            Text(this.cursorVisible ? '▊' : '')
-              .fontSize(16)
-              .fontColor($r('app.color.primary'))
-              .margin({ left: 2 });
-          }
-        }
-        .padding(20)
-        .backgroundColor($r('app.color.card_background'))
-        .borderRadius(14)
-        .width('100%')
-        .shadow({ radius: 6, color: '#0D000000', offsetX: 0, offsetY: 2 });
-
-        // 加载中提示（流式文本还为空时显示）
-        if (this.streamingText.length === 0) {
-          Column() {
-            LoadingProgress()
-              .width(36).height(36)
-              .color($r('app.color.loading_progress'));
-            Text('AI 正在生成...')
-              .fontSize(14).fontColor($r('app.color.text_secondary'))
-              .margin({ top: 12 });
-          }
-          .alignItems(HorizontalAlign.Center)
-          .justifyContent(FlexAlign.Center)
-          .width('100%')
-          .height(120);
-        }
-      }
-      .padding(20)
-      .width('100%');
-    }
   }
 
   @Builder
