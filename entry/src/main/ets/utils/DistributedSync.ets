@@ -7,6 +7,9 @@
 import distributedDataObject from '@ohos.data.distributedDataObject';
 import { preferences } from '@kit.ArkData';
 
+const SYNC_ALLOWED_KEYS: string[] = ['currentRound', 'pageState', 'jdText', 'reportJson'];
+const ERR_MSG_SEC = '';
+
 const STORE_NAME = 'ai_interviewer_prefs';
 const KEY_DISTRIBUTED_ENABLED = 'ai_interviewer_distributed_enabled';
 
@@ -64,11 +67,11 @@ export async function createDistributedSession(context: Context): Promise<object
  */
 export function updateSyncField(dataObj: object | null, key: string, value: Object): void {
   if (!dataObj) { return; }
+  if (SYNC_ALLOWED_KEYS.indexOf(key) < 0) { return; }
   try {
     (dataObj as Record<string, Object>)[key] = value;
   } catch (err) {
     const em = (err as Error).message;
-
   }
 }
 
@@ -77,6 +80,7 @@ export function updateSyncField(dataObj: object | null, key: string, value: Obje
  */
 export function getSyncField(dataObj: object | null, key: string): Object | null {
   if (!dataObj) { return null; }
+  if (SYNC_ALLOWED_KEYS.indexOf(key) < 0) { return null; }
   try {
     return (dataObj as Record<string, Object>)[key];
   } catch (err) {
