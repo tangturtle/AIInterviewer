@@ -1,5 +1,6 @@
 import { getApiKey, saveApiKey, saveProvider, getProvider, saveModel, getModel, saveTestCache, getTestCache, clearTestCache, BUILTIN_ENDPOINTS, DEFAULT_PROVIDER, DEFAULT_MODELS, TestCache } from '../utils/PreferencesManager';
 import { testConnection, fetchModels, fetchBalance } from '../utils/http';
+import { getDistributedEnabled, saveDistributedEnabled, createDistributedSession, cleanupDistributedSession, onSessionStatusChange, getSessionOnline } from '../utils/DistributedSync';
 
 @Component
 export struct SettingPage {
@@ -15,8 +16,12 @@ export struct SettingPage {
   @State selectedModel: string = '';
   @State savedFeedback: boolean = false;
   @State isApiFocused: boolean = false;
+  @State distributedEnabled: boolean = false;
+  @State distributedOnline: boolean = false;
+  @State distributedChecking: boolean = false;
   private isLoadingKey: boolean = false;
   private loadedApiKey: string = '';
+  private distributedSession: object | null = null;
 
   private providerOptions: SelectOption[] = [
     { value: 'DeepSeek' },
@@ -60,6 +65,9 @@ export struct SettingPage {
         // 有 Key 但无缓存/缓存不匹配，自动获取模型列表，无需手动点检测
         void this.fetchModelsSilent();
       }
+
+      // 读取分布式开关状态
+      this.distributedEnabled = await getDistributedEnabled(ctx);
     } finally {
       this.isLoadingKey = false;
     }
@@ -111,6 +119,54 @@ export struct SettingPage {
       balance: balanceInfo,
       selectedModel: this.selectedModel
     });
+  }
+
+  aboutToDisappear(): void {
+    cleanupDistributedSession(this.distributedSession);
+    this.distributedSession = null;
+  }
+
+  private async toggleDistributed(checked: boolean): Promise<void> {
+    const ctx = getContext(this);
+    await saveDistributedEnabled(ctx, checked);
+    this.distributedEnabled = checked;
+    if (checked) {
+      this.distributedChecking = true;
+      this.distributedSession = await createDistributedSession(ctx);
+      this.distributedChecking = false;
+      if (this.distributedSession) {
+        onSessionStatusChange((status: string): void => {
+          this.distributedOnline = status === '已连接';
+        });
+      } else {
+        this.distributedOnline = false;
+      }
+    } else {
+      cleanupDistributedSession(this.distributedSession);
+      this.distributedSession = null;
+      this.distributedOnline = false;
+    }
+  }
+
+  private getDistributedStatusText(): string {
+    if (!this.distributedEnabled) { return '已禁用'; }
+    if (this.distributedChecking) { return '检测中...'; }
+    if (this.distributedOnline) { return '对端在线'; }
+    return '未检测到对端设备';
+  }
+
+  private getDistributedStatusColor(): Resource {
+    if (!this.distributedEnabled) { return $r('app.color.text_tip'); }
+    if (this.distributedChecking) { return $r('app.color.text_secondary'); }
+    if (this.distributedOnline) { return $r('app.color.text_success'); }
+    return $r('app.color.text_warning');
+  }
+
+  private getDistributedStatusIcon(): string {
+    if (!this.distributedEnabled) { return '⚪'; }
+    if (this.distributedChecking) { return '🔄'; }
+    if (this.distributedOnline) { return '🟢'; }
+    return '🔴';
   }
 
   private getProviderName(index: number): string {
@@ -385,6 +441,38 @@ export struct SettingPage {
             .width('100%').margin({ bottom: 16 })
             .shadow({ radius: 4, color: '#08000000', offsetX: 0, offsetY: 1 });
           }
+
+          // ═══ 分布式同步卡片 ═════════════════════════
+          Column() {
+            Row() {
+              Text('📡').fontSize(18).margin({ right: 12 });
+              Column() {
+                Text('分布式同步').fontSize(15).fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.text_primary'));
+                Text('在手机和平板间同步面试进度')
+                  .fontSize(12).fontColor($r('app.color.text_tip')).margin({ top: 2 });
+              }
+              .alignItems(HorizontalAlign.Start).layoutWeight(1);
+              Toggle({ type: ToggleType.Switch, isOn: this.distributedEnabled })
+                .onChange((isOn: boolean): void => { void this.toggleDistributed(isOn); });
+            }
+            .width('100%').margin({ bottom: 12 });
+
+            Row() {
+              Text(this.getDistributedStatusIcon()).fontSize(16).margin({ right: 8 });
+              Text(this.getDistributedStatusText()).fontSize(13)
+                .fontColor(this.getDistributedStatusColor());
+            }
+            .width('100%');
+
+            if (this.distributedEnabled) {
+              Text('请在两台设备安装此应用并登录同一华为账号')
+                .fontSize(11).fontColor($r('app.color.text_tip')).width('100%').margin({ top: 8 });
+            }
+          }
+          .padding(16).backgroundColor($r('app.color.card_background')).borderRadius(14)
+          .width('100%').margin({ bottom: 16 })
+          .shadow({ radius: 4, color: '#08000000', offsetX: 0, offsetY: 1 });
 
           // ═══ 操作按钮区 ═══════════════════════════
           Button('检测连通性')

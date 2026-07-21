@@ -90,6 +90,7 @@ export async function createDistributedSession(context: Context): Promise<object
       const sd: Record<string, Object> = statusData as Record<string, Object>;
       const status: string = sd['status'] as string;
       const online: boolean = status === 'online';
+      _online = online;
       const _status: string = online ? '已连接' : '已断开';
       if (_statusCallback) { _statusCallback(_status); }
     });
@@ -108,8 +109,14 @@ export async function createDistributedSession(context: Context): Promise<object
 }
 
 // -- 回调注册（单例，仅支持一个监听者） --
+let _online: boolean = false;
 let _statusCallback: ((status: string) => void) | null = null;
 let _changeCallback: ((dataObj: object) => void) | null = null;
+
+/** 查询当前对端是否在线 */
+export function getSessionOnline(): boolean {
+  return _online;
+}
 
 /** 注册对端连接状态变化回调 */
 export function onSessionStatusChange(callback: (status: string) => void): void {
@@ -135,6 +142,7 @@ export function cleanupDistributedSession(dataObj: object | null): void {
     const em: string = (err as Error).message;
     hilog.error(0x0000, 'AIInterviewer', 'cleanupDistributedSession: %{private}s', em);
   }
+  _online = false;
   _statusCallback = null;
   _changeCallback = null;
 }
